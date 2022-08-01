@@ -1,0 +1,9 @@
+torch
+torchvision
+torchinfo
+pillow
+opencv-python
+torchmetrics
+matplotlib
+numpy
+yacs
