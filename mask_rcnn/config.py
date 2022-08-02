@@ -8,7 +8,7 @@ def get_config() -> CfgNode:
     ####################################################################################################################
     cfg.data = CfgNode()
 
-    # glob pattern specifying the json COCO-style files describing the data used in training
+    # glob pattern or patterns specifying the json COCO-style files describing the data used in training
     cfg.data.pattern = None
 
     ####################################################################################################################
@@ -92,3 +92,10 @@ def get_config() -> CfgNode:
     cfg.training.sched.exponential.gamma = 0.1
 
     return cfg
+
+
+def finalise(cfg: CfgNode):
+    assert cfg.data.pattern is not None, 'cfg.data.pattern must be specified and must be a string or a list of strings.'
+    if isinstance(cfg.data.pattern, str):
+        cfg.data.pattern = [cfg.data.pattern]
+    cfg.freeze()
