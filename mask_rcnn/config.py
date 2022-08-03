@@ -37,11 +37,11 @@ def get_config() -> CfgNode:
     cfg.training.batch_size = 10
     cfg.training.shuffle_every_epoch = True
     cfg.training.metrics = [
-        'm.CosineSimilarity()',
-        'm.RMSE()',
-        'm.PearsonCorrcoef()',
-        'm.R2Score()',
-        'm.SpearmanCorrcoef()'
+        # 'm.CosineSimilarity()',
+        # 'm.RMSE()',
+        # 'm.PearsonCorrcoef()',
+        # 'm.R2Score()',
+        # 'm.SpearmanCorrcoef()'
     ]
 
     cfg.training.opt = CfgNode()
