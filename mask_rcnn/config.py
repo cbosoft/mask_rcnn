@@ -22,6 +22,20 @@ def get_config() -> CfgNode:
     cfg.model = CfgNode()
     cfg.model.n_classes = 1
     cfg.model.backbone = CfgNode()
+    cfg.model.backbone.kind = 'resnet'
+    cfg.model.backbone.pretrained = True
+
+    # Optional string (python code) defining the layers to be returned by the backbone. Should eval to list of int.
+    # e.g. 'list(range(1, 5))' -> [1, 2, 3, 4]
+    cfg.model.backbone.returned_layers = None
+
+    # How many layers should be trainable? The rest are frozen.
+    cfg.model.backbone.trainable_layers = 2
+
+    # ResNet specific backbone settings
+    cfg.model.backbone.resnet = CfgNode()
+    cfg.model.backbone.resnet.n = 18
+
     cfg.model.rpn_anchor_generator = CfgNode()
     cfg.model.roi_pooler = CfgNode()
     cfg.model.mask_roi_pooler = CfgNode()
