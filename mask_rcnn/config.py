@@ -28,6 +28,7 @@ def get_config() -> CfgNode:
 
     ####################################################################################################################
     cfg.training = CfgNode()
+    cfg.training.checkpoint_every = 100
 
     # glob pattern specifying the json COCO-style files describing the data used in training
     cfg.training.n_epochs = 1_000
