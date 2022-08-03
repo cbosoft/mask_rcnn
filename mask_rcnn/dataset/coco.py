@@ -52,7 +52,7 @@ class COCO_Image:
         self.file_name: str = file_name
         self.orig_width = width
         self.orig_height = height
-        self.scale = self.width/self.orig_width, self.height/self.orig_height
+        self.scale = self.scale_x, self.scale_y = self.width/self.orig_width, self.height/self.orig_height
         self.annotations: List[COCO_Annotation] = []
 
         image = cv2.imread(self.file_name, cv2.IMREAD_COLOR)
@@ -60,9 +60,13 @@ class COCO_Image:
         self.image = torch.tensor(image).permute(2, 0, 1)
         self.target_dict = None
 
+    def scale_bbox(self, bbox):
+        x1, y1, x2, y2 = bbox
+        return self.scale_x*x1, self.scale_y*y1, self.scale_x*x2, self.scale_y*y2
+
     def get_target_dict(self) -> dict:
         if self.target_dict is None:
-            boxes = torch.tensor([a.bbox for a in self.annotations]).float()
+            boxes = torch.tensor([self.scale_bbox(a.bbox) for a in self.annotations]).float()
             labels = torch.tensor([a.category_id for a in self.annotations], dtype=torch.int64)
             masks = torch.tensor(np.array([a.get_mask(self.size, self.scale) for a in self.annotations]), dtype=torch.uint8)
             self.target_dict = dict(boxes=boxes, labels=labels, masks=masks)
