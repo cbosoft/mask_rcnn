@@ -8,3 +8,4 @@ matplotlib
 numpy
 yacs
 pytest
+tqdm
