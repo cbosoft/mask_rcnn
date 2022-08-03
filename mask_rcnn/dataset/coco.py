@@ -32,7 +32,6 @@ class COCO_Annotation:
 
     def get_mask(self, width, height):
         mask = np.zeros((height, width), dtype='uint8')
-        print(self.segmentation)
         cv2.drawContours(mask, self.segmentation, -1, self.category_id, -1)
         return mask
 
