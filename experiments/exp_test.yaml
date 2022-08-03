@@ -1,0 +1,5 @@
+data:
+  pattern:
+    - "data/MISC_DEV_TEST_DATA.json"
+model:
+  n_classes: 4
