@@ -13,7 +13,6 @@ from ..config import CfgNode
 from ..progress_bar import progressbar
 from ..model import build_model
 from ..dataset import build_loaders
-from ..loss import build_loss
 from ..metrics import build_metrics
 from ..plotter import build_plotter
 from ..optim import build_optim
@@ -30,7 +29,6 @@ class Trainer:
         self.train_dl, self.valid_dl = self.build_loaders(config)
         self.test_dl = None
         self.should_test = False
-        self.loss_func_t = build_loss(config)
         self.metrics = build_metrics(config)
         self.plotter = build_plotter(self)
         self.opt_t, self.opt_kws = build_optim(config)
@@ -84,7 +82,8 @@ class Trainer:
             opt.zero_grad()
             out = self.model(inp)
 
-            loss = loss_func(out, tgt)
+            loss_dict = self.model(inp, [tgt])
+            loss = sum(loss_dict.values())
 
             train_loss = loss.item()
             self.total_train_loss += train_loss
@@ -112,16 +111,13 @@ class Trainer:
                 inp = batch['inputs'].to(self.device)
                 tgt = batch['targets'].to(self.device)
                 tags = batch['tag']
-                out = self.model(inp)
+                loss_dict = self.model(inp, [tgt])
+                loss = sum(loss_dict.values())
 
-                loss = loss_func(out, tgt)
-                _loss = loss.item()
                 if is_test:
-                    self.total_test_loss += _loss
+                    self.total_test_loss += loss.item()
                 else:
-                    self.total_valid_loss += _loss
-                    self.vbn += 1
-
+                    self.total_valid_loss += loss.item()
                 store.add_scalar(f'loss.per_batch.{valid_or_test}', self.vbn, _loss / len(batch))
 
                 for metric_name, metric_func in self.metrics.items():
@@ -147,13 +143,13 @@ class Trainer:
         store.add_scalar(f'loss.per_epoch.{valid_or_test}', self.i,
                          (self.total_test_loss if is_test else self.total_valid_loss) / len(dataloader))
 
-    def do_validation(self, store, loss_func):
-        self.validate_or_test(self.valid_dl, loss_func, store=store, is_test=False)
+    def do_validation(self, store):
+        self.validate_or_test(self.valid_dl, store=store, is_test=False)
 
-    def do_test(self, store, loss_func):
+    def do_test(self, store):
         assert self.should_test
         assert self.test_dl is not None
-        self.validate_or_test(self.test_dl, loss_func, store=store, is_test=True)
+        self.validate_or_test(self.test_dl, store=store, is_test=True)
 
     def save_dataset_contents(self, dataloader, tag):
         sources = []
@@ -181,21 +177,17 @@ class Trainer:
 
         opt = self.opt_t(self.model.parameters(), **self.opt_kws)
         scheduler = self.sched_t(opt, **self.sched_kws)
-        loss_func = self.loss_func_t()
         self.bar = progressbar(range(self.n_epochs), unit='epoch')
         with DataStore(self.output_dir, prefix=self.prefix) as store:
-            self.init_store_metadata(store)
-            self.do_validation(store, loss_func)
+            self.do_validation(store)
             for _i in self.bar:
                 self.i = _i + 1
-                self.total_train_loss = 0
-                self.do_train(store, opt, scheduler, loss_func)
-                if self.should_validate:
-                    self.total_valid_loss = 0.0
-                    self.do_validation(store, loss_func)
 
-                if self.should_plot:
-                    store.plot()
+                self.total_train_loss = 0
+                self.do_train(store, opt, scheduler)
+
+                self.total_valid_loss = 0.0
+                self.do_validation(store)
 
                 if self.should_checkpoint:
                     self.checkpoint()
