@@ -65,7 +65,6 @@ class Trainer:
         return (self.i % self.checkpoint_every) == 0
 
     def prep_target(self, targets: dict):
-        print(targets)
         rv = dict()
         for k, v in targets.items():
             if isinstance(v, torch.Tensor):
