@@ -30,29 +30,43 @@ class COCO_Annotation:
         self.iscrowd = iscrowd
         self.attributes = attributes
 
-    def get_mask(self, width, height):
-        mask = np.zeros((height, width), dtype='uint8')
-        cv2.drawContours(mask, self.segmentation, -1, self.category_id, -1)
+    def get_mask(self, size, scale):
+        w, h = size
+        sx, sy = scale
+        mask = np.zeros((w, h), dtype='uint8')
+        seg = []
+        for segi in self.segmentation:
+            segi = np.copy(segi).astype(float)
+            segi[:, 0] *= sx
+            segi[:, 1] *= sy
+            seg.append(segi.astype(np.int32))
+        cv2.drawContours(mask, seg, -1, 1, -1)
         return mask
 
 
 class COCO_Image:
 
+    size = width, height = 256, 256
+
     def __init__(self, *, file_name, width, height, **_):
         self.file_name: str = file_name
-        self.width = width
-        self.height = height
+        self.orig_width = width
+        self.orig_height = height
+        self.scale = self.width/self.orig_width, self.height/self.orig_height
         self.annotations: List[COCO_Annotation] = []
 
-    def get_target_dict(self) -> dict:
-        boxes = torch.tensor([a.bbox for a in self.annotations]).float()
-        labels = torch.tensor([a.category_id for a in self.annotations], dtype=torch.int64)
-        masks = torch.tensor([a.get_mask(self.width, self.height) for a in self.annotations], dtype=torch.uint8)
-        return dict(boxes=boxes, labels=labels, masks=masks)
+        image = cv2.imread(self.file_name, cv2.IMREAD_COLOR)
+        image = cv2.resize(image, self.size)
+        self.image = torch.tensor(image).permute(2, 0, 1)
+        self.target_dict = None
 
-    def get_image(self):
-        im = cv2.imread(self.file_name, cv2.IMREAD_GRAYSCALE)
-        return torch.tensor(im)
+    def get_target_dict(self) -> dict:
+        if self.target_dict is None:
+            boxes = torch.tensor([a.bbox for a in self.annotations]).float()
+            labels = torch.tensor([a.category_id for a in self.annotations], dtype=torch.int64)
+            masks = torch.tensor(np.array([a.get_mask(self.size, self.scale) for a in self.annotations]), dtype=torch.uint8)
+            self.target_dict = dict(boxes=boxes, labels=labels, masks=masks)
+        return self.target_dict
 
 
 class COCODataset(_TorchDataset):
@@ -90,12 +104,11 @@ class COCODataset(_TorchDataset):
         return len(self.images)
 
     def __getitem__(self, i):
-        img = self.images[i]
-        tgt = img.get_target_dict()
-        img = img.get_image()
+        img_data = self.images[i]
+        tgt = img_data.get_target_dict()
+        img = img_data.image
         if self.transforms:
             img = self.transforms(img)
         img = (img/255.).to(torch.float)
-        img = torch.stack([img, img, img])
         # TODO resize tgt masks/boxes too?
         return dict(image=img, target=tgt)
