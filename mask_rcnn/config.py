@@ -1,9 +1,16 @@
+import os
+from datetime import datetime
+
 from yacs.config import CfgNode
 import torch
 
 
 def get_config() -> CfgNode:
     cfg = CfgNode()
+
+    # set to True to output information useful for debug
+    cfg.debug_mode = False
+    cfg.output_dir = 'training_results/%Y-%m-%d_%H-%M-%S'
 
     ####################################################################################################################
     cfg.data = CfgNode()
@@ -98,4 +105,6 @@ def finalise(cfg: CfgNode):
     assert cfg.data.pattern is not None, 'cfg.data.pattern must be specified and must be a string or a list of strings.'
     if isinstance(cfg.data.pattern, str):
         cfg.data.pattern = [cfg.data.pattern]
+    cfg.output_dir = datetime.now().strftime(cfg.output_dir)
+    os.makedirs(cfg.output_dir, exist_ok=True)
     cfg.freeze()
