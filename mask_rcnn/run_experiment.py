@@ -8,5 +8,5 @@ def run_experiment(config_file_path: str):
     cfg.merge_from_file(config_file_path)
     finalise(cfg)
 
-    trainer = Trainer(cfg)
-    trainer.train()
+    with Trainer(cfg) as trainer:
+        trainer.train()
