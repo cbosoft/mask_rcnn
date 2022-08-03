@@ -165,6 +165,8 @@ class Trainer:
         scheduler = self.sched_t(opt, **self.sched_kws)
         self.bar = progressbar(range(self.n_epochs), unit='epoch')
         with Database() as store:
+            store.set_exp_status(self.exp_id, 'TRAINING')
+            store.set_config_file(self.exp_id, f'{self.output_dir}/config.yaml')
             self.do_validation(store)
             for _i in self.bar:
                 self.i = _i + 1
@@ -189,6 +191,8 @@ class Trainer:
                 # self.model.load_state_dict(torch.load(f'{self.output_dir}/{self.prefix}model_min_loss.pth'))
                 print('Running on test dataset')
                 self.do_test(store)
+
+            store.set_exp_status(self.exp_id, 'COMPLETE')
 
     def checkpoint(self, store: Database):
         state_path = f'{self.output_dir}/{self.prefix}model_state_at_epoch={self.i}.pth'
