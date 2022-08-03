@@ -14,7 +14,6 @@ from ..progress_bar import progressbar
 from ..model import build_model
 from ..dataset import build_loaders
 from ..metrics import build_metrics
-from ..plotter import build_plotter
 from ..optim import build_optim
 from ..sched import build_sched
 
@@ -30,7 +29,6 @@ class Trainer:
         self.test_dl = None
         self.should_test = False
         self.metrics = build_metrics(config)
-        self.plotter = build_plotter(self)
         self.opt_t, self.opt_kws = build_optim(config)
         self.sched_t, self.sched_kws = build_sched(config, len(self.train_dl))
 
@@ -40,47 +38,46 @@ class Trainer:
         self.n_epochs = config.training.n_epochs
         self.device = torch.device(config.training.device)
         self.output_dir = config.output_dir
-        self.plot_every = config.training.plot_every
         self.checkpoint_every = config.training.checkpoint_every
-        self.validate_every = config.training.validate_every
-        self.i = self.tbn = self.vbn = self.total_valid_loss = self.total_train_loss = self.total_test_loss = 0
+        self.i = self.total_valid_loss = self.total_train_loss = self.total_test_loss = 0
         self.min_valid_loss = np.inf
         self.bar = self.last_checkpoint = None
+        self.store = None
+        self.base_exp_id = datetime.now().strftime(f'%Y%m%d_%H%M%S_MaskRCNN')
 
         # used by sub_classes
         self.prefix = ''
 
+    @property
+    def exp_id(self):
+        suffix = self.prefix.rstrip('_')
+        if suffix:
+            suffix = '_' + suffix
+        return self.base_exp_id + suffix
+
     def build_loaders(self, config):
-        return build_loaders(config)
-
-    @property
-    def should_plot(self) -> bool:
-        return (self.i % self.plot_every == 0) or (self.i == self.n_epochs - 1)
-
-    @property
-    def should_validate(self) -> bool:
-        return (self.i % self.validate_every == 0) or self.should_plot or self.validate_every == 1
+        _ = self
+        return build_dataloaders(config)
 
     @property
     def should_checkpoint(self) -> bool:
-        return self.i % self.checkpoint_every == 0
+        return (self.i % self.checkpoint_every) == 0
 
-    @staticmethod
-    def init_store_metadata(store):
-        store.add_metadata_re('loss.*', logy=True)
-        store.add_metadata('learning_rate', xlabel='Batch [#]')
-        store.add_metadata_re(r'.*\.per_batch\..*', xlabel='Training Batch [#]')
-        store.add_metadata_re(r'.*\.per_batch\.valid', xlabel='Valid Batch [#]')
-        store.add_metadata_re(r'.*\.per_epoch\..*', xlabel='Epoch [#]')
-        store.add_metadata_re(r'metrics\..*', xlabel='Epoch [#]')
-        store.add_metadata_re(r'metrics\.by_class\..*', plot_timeseries=False)
+    def prep_target(self, targets: dict):
+        print(targets)
+        rv = dict()
+        for k, v in targets.items():
+            if isinstance(v, torch.Tensor):
+                v = v[0].to(self.device)
+            rv[k] = v
+        return rv
 
-    def do_train(self, store, opt, scheduler, loss_func):
+    def do_train(self, store: Database, opt, scheduler):
+        self.model.train()
         for batch in self.train_dl:
-            inp = batch['inputs'].to(self.device)
-            tgt = batch['targets'].to(self.device)
+            inp = batch['image'].to(self.device)
+            tgt = self.prep_target(batch['target'])
             opt.zero_grad()
-            out = self.model(inp)
 
             loss_dict = self.model(inp, [tgt])
             loss = sum(loss_dict.values())
@@ -98,13 +95,8 @@ class Trainer:
 
     def validate_or_test(self, dataloader, loss_func, store, is_test: bool):
 
-        # axes = self.plot_prep()
-
         metrics = defaultdict(list)
         valid_or_test = 'test' if is_test else 'valid'
-
-        if self.should_plot:
-            self.plotter.init()
 
         with torch.no_grad():
             for batch in dataloader:
@@ -131,15 +123,10 @@ class Trainer:
                         metrics[f'metrics.{valid_or_test}.{metric_name}'].append(metric_value)
                         metrics[f'metrics.by_class.{tag}.{valid_or_test}.{metric_name}'].append(metric_value)
 
-                # self.plot_valid_batch(axes, tgt, out)
-                if self.should_plot:
-                    self.plotter.plot_targets(batch, out)
-
             for key, values in metrics.items():
                 store.add_scalar(key, self.i, np.mean(values))
-            # self.plot_finalise(axes, is_test=is_test)
-            if self.should_plot:
-                self.plotter.finalise()
+        store.add_loss_value(self.exp_id, valid_or_test, self.i,
+                             (self.total_test_loss if is_test else self.total_valid_loss) / len(dataloader))
         store.add_scalar(f'loss.per_epoch.{valid_or_test}', self.i,
                          (self.total_test_loss if is_test else self.total_valid_loss) / len(dataloader))
 
