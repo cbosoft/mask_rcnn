@@ -8,8 +8,15 @@ import torch
 def get_config() -> CfgNode:
     cfg = CfgNode()
 
+    # What do we want to do in the experiment?
+    # Can only be 'train'.
+    # Future versions will include 'xval' (cross validation), and 'inference'.
+    cfg.action = 'train'
+
     # set to True to output information useful for debug
     cfg.debug_mode = False
+
+    # pattern to use to create the output directory, where training results are stored.
     cfg.output_dir = 'training_results/%Y-%m-%d_%H-%M-%S'
 
     ####################################################################################################################

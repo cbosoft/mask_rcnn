@@ -3,7 +3,6 @@ from collections import defaultdict
 from datetime import datetime
 from traceback import format_exception
 
-import matplotlib.pyplot as plt
 import torch
 import numpy as np
 
@@ -18,9 +17,10 @@ from ..dataset import build_dataloaders
 from ..metrics import build_metrics
 from ..optim import build_optim
 from ..sched import build_sched
+from .action_base import Action
 
 
-class Trainer:
+class Trainer(Action):
 
     def __init__(self, config: CfgNode):
         self.model = build_model(config)
@@ -147,8 +147,10 @@ class Trainer:
 
             for key, values in metrics.items():
                 self.store.add_metric_value(self.exp_id, key, self.i, np.mean(values))
-        self.store.add_loss_value(self.exp_id, valid_or_test, self.i,
-                             (self.total_test_loss if is_test else self.total_valid_loss) / len(dataloader))
+        self.store.add_loss_value(
+            self.exp_id, valid_or_test, self.i,
+            (self.total_test_loss if is_test else self.total_valid_loss) / len(dataloader)
+        )
 
     def do_validation(self):
         self.validate_or_test(self.valid_dl, is_test=False)
@@ -223,6 +225,9 @@ so that any exceptions can be properly handled, and training status can be logge
                 self.do_test()
 
             self.store.set_exp_status(self.exp_id, 'COMPLETE')
+
+    def act(self):
+        self.train()
 
     def checkpoint(self):
         state_path = f'{self.output_dir}/{self.prefix}model_state_at_epoch={self.i}.pth'
