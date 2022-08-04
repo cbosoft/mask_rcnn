@@ -184,8 +184,9 @@ so that any exceptions can be properly handled, and training status can be logge
         self.i = self.total_valid_loss = self.total_train_loss = 0
 
         self.device = torch.device(self.device)
-        print(f'Running on {self.device}')
+        print(f'Running on "{self.device}".')
         self.model = self.model.to(self.device)
+        print(f'Saving output to "{self.output_dir}".')
 
         with open(f'{self.output_dir}/model.txt', 'w') as f:
             f.write(str(self.model))
@@ -195,11 +196,12 @@ so that any exceptions can be properly handled, and training status can be logge
 
         opt = self.opt_t(self.model.parameters(), **self.opt_kws)
         scheduler = self.sched_t(opt, **self.sched_kws)
-        self.bar = progressbar(range(self.n_epochs), unit='epoch')
         with Database() as self.store:
+            print(f'Connected to database at "{self.store.path}".')
             self.store.set_exp_status(self.exp_id, 'TRAINING')
             self.store.set_config_file(self.exp_id, f'{self.output_dir}/config.yaml')
             self.do_validation()
+            self.bar = progressbar(range(self.n_epochs), unit='epoch')
             for _i in self.bar:
                 self.i = _i + 1
 
