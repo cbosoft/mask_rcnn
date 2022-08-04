@@ -5,7 +5,7 @@ from traceback import format_exception
 
 import torch
 import numpy as np
-
+import cv2
 from torchinfo import summary
 from mldb import Database
 
@@ -41,6 +41,7 @@ class Trainer(Action):
         self.device = torch.device(config.training.device)
         self.output_dir = config.output_dir
         self.checkpoint_every = config.training.checkpoint_every
+        self.visualise_every = config.training.visualise_every
         self.i = self.total_valid_loss = self.total_train_loss = self.total_test_loss = 0
         self.min_valid_loss = np.inf
         self.bar = self.last_checkpoint = None
@@ -115,6 +116,31 @@ class Trainer(Action):
 
         self.store.add_loss_value(self.exp_id, 'train', self.i, self.total_train_loss / len(self.train_dl))
 
+    def visualise_valid_batch(self, images, targets, outputs, _):
+        for i, (image, tmasks, output) in enumerate(zip(images, targets['masks'], outputs)):
+            image = (image.permute(1, 2, 0) * 255.).cpu().numpy().astype('uint8').copy()
+
+            # draw ground truth
+            for mask in tmasks:
+                mask = mask.cpu().numpy()
+                contours = cv2.findContours(mask, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)[0]
+                cv2.drawContours(image, contours, -1, (0, 255, 255), 1)
+
+            # draw prediction
+            omasks, oscores = output['masks'], output['scores']
+            # masks_and_scores = list(zip(*filter(lambda mbs: mbs[-1] > 0.5, zip(omasks, oscores))))
+            # if masks_and_scores:
+            #     omasks, oscores = masks_and_scores
+            # else:
+            #     omasks, oscores = [], []
+
+            for mask in omasks:
+                mask = (mask[0].cpu().numpy() > 0.5).astype(np.uint8)
+                contours = cv2.findContours(mask, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)[0]
+                cv2.drawContours(image, contours, -1, (255, 0, 0), 1)
+
+            cv2.imwrite(f'{self.output_dir}/seg_{i}_epoch={self.i}.jpg', image)
+
     def validate_or_test(self, dataloader, is_test: bool):
 
         metrics = defaultdict(list)
@@ -135,10 +161,16 @@ class Trainer(Action):
                     self.total_valid_loss += loss.item()
 
             self.model.eval()
+            done_vis = False
             for batch in dataloader:
                 inp = batch['image'].to(self.device)
                 tgt = self.prep_target(batch['target'])
                 out = self.model(inp)
+
+                if not done_vis and ((self.i % self.visualise_every) == 0):
+                    self.visualise_valid_batch(inp, tgt, out, batch['source'])
+                    done_vis = True
+
                 for metric_name, metric_func in self.metrics.items():
                     for o, t in zip(out, tgt):
                         metric_value = metric_func(o, t)

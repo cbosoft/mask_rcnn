@@ -3,3 +3,5 @@ data:
     - "data/MISC_DEV_TEST_DATA.json"
 model:
   n_classes: 4
+training:
+  visualise_every: 1
