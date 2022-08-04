@@ -95,7 +95,7 @@ def get_config() -> CfgNode:
     cfg.training.opt.sgd.maximize = False
 
     cfg.training.sched = CfgNode()
-    cfg.training.sched.kind = 'OneCycle'  # ('OneCycle', 'Linear', 'Step')
+    cfg.training.sched.kind = 'OneCycle'  # ('OneCycle', 'Linear', 'Step', 'None')
 
     # OneCycle LR scheduler. See pytorch docs for param info:
     # https://pytorch.org/docs/stable/generated/torch.optim.lr_scheduler.OneCycleLR.html#torch.optim.lr_scheduler.OneCycleLR

@@ -3,6 +3,12 @@ import torch.optim.lr_scheduler as lr_scheduler
 from .config import CfgNode
 
 
+class NoOpScheduler:
+
+    def step(self, *args):
+        pass
+
+
 def build_sched(config: CfgNode, batches_per_epoch: int):
     kind = config.training.sched.kind
     if kind == 'OneCycle':
@@ -21,6 +27,9 @@ def build_sched(config: CfgNode, batches_per_epoch: int):
     elif kind == 'Exponential':
         sched_t = lr_scheduler.ExponentialLR
         sched_kws = dict(config.training.sched.exponential)
+    elif kind == 'None':
+        sched_t = NoOpScheduler
+        sched_kws = dict()
     else:
         raise ValueError(f'Didn\'t understand given scheduler: "{kind}"')
 
