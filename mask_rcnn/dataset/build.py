@@ -17,4 +17,11 @@ def build_dataset(cfg: CfgNode):
 
 def build_dataloaders(cfg: CfgNode):
     ds = build_dataset(cfg)
-    return [DataLoader(ds) for ds in split_dataset(ds, cfg)]
+    dl_kws = dict(
+        batch_size=cfg.training.batch_size,
+        drop_last=True,
+    )
+    return [
+        DataLoader(ds, shuffle=cfg.training.shuffle_every_epoch if i == 0 else False, **dl_kws)
+        for i, ds in enumerate(split_dataset(ds, cfg))
+    ]
