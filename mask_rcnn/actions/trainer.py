@@ -69,6 +69,9 @@ class Trainer(Action):
             with open(f'{self.output_dir}/error.txt', 'w') as f:
                 f.write(format_exception(exc_type, exc_val, exc_tb))
 
+        # Always checkpoint.
+        self.checkpoint()
+
     @property
     def exp_id(self):
         suffix = self.prefix.rstrip('_')
@@ -217,8 +220,6 @@ so that any exceptions can be properly handled, and training status can be logge
 
                 self.update_progress()
 
-            # always checkpoint at the end
-            self.checkpoint()
             if self.should_test:
                 assert self.test_dl
                 # print('Loading best model state (decided based on validation set results)')
