@@ -5,6 +5,9 @@ from .config import CfgNode
 
 class NoOpScheduler:
 
+    def __init__(self, *_, **__):
+        pass
+
     def step(self, *args):
         pass
 
@@ -27,7 +30,7 @@ def build_sched(config: CfgNode, batches_per_epoch: int):
     elif kind == 'Exponential':
         sched_t = lr_scheduler.ExponentialLR
         sched_kws = dict(config.training.sched.exponential)
-    elif kind == 'None':
+    elif kind == 'None' or kind is None:
         sched_t = NoOpScheduler
         sched_kws = dict()
     else:
