@@ -1,3 +1,5 @@
+import mldb
+import torch
 from torch import nn
 from torchvision.models import (
     ResNet18_Weights,
@@ -73,6 +75,16 @@ def build_model(cfg: CfgNode) -> MaskRCNN:
         mask_roi_pool=build_mask_roi_pooler(cfg)
     )
 
+    if cfg.model.state:
+        if isinstance(cfg.model.state, str):
+            state_file = cfg.model.state
+        else:
+            assert isinstance(cfg.model.state, tuple)
+            assert len(cfg.model.state) == 2
+            expid, epoch = cfg.model.state
+            with mldb.Database() as db:
+                state_file = db.get_state_file(expid, epoch)
+        model.load_state_dict(torch.load(state_file))
     # TODO initialise weights or load state
 
     return model

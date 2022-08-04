@@ -27,6 +27,13 @@ def get_config() -> CfgNode:
 
     ####################################################################################################################
     cfg.model = CfgNode()
+
+    # load a previous state from file or database, or leave as is.
+    # If None, no state is loaded
+    # If a string, the string must be a path pointing to a state file (*.pth)
+    # Otherwise, must be a tuple of (exp_id, epoch) used to find a model state file in the database.
+    cfg.model.state = None
+
     cfg.model.n_classes = 1
     cfg.model.backbone = CfgNode()
     cfg.model.backbone.kind = 'resnet'
@@ -124,9 +131,23 @@ def get_config() -> CfgNode:
 
 
 def finalise(cfg: CfgNode):
+    # data spec
     assert cfg.data.pattern is not None, 'cfg.data.pattern must be specified and must be a string or a list of strings.'
     if isinstance(cfg.data.pattern, str):
         cfg.data.pattern = [cfg.data.pattern]
+
+    # output dir
     cfg.output_dir = datetime.now().strftime(cfg.output_dir)
     os.makedirs(cfg.output_dir, exist_ok=True)
+
+    # model state
+    if cfg.model.state is not None:
+        assert isinstance(cfg.model.state, (str, tuple)), f'cfg.model.state must be string or 2-tuple: (expid: str, epoch: int) (got {type(cfg.model.state)}).'
+        if isinstance(cfg.model.state, tuple):
+            assert len(cfg.model.state) == 2, f'cfg.model.state tuple must be 2-tuple: (expid: str, epoch: int) (got {len(cfg.model.state)})'
+            expid, epoch = cfg.model.state
+            assert isinstance(expid, str), f'cfg.model.state item 0 should be string experiment id (got {expid})'
+            assert isinstance(epoch, int), f'cfg.model.state item 1 should be int epoch # (got {epoch})'
+
+    # freeze config, making it immutable.
     cfg.freeze()
