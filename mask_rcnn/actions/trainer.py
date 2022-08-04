@@ -90,22 +90,33 @@ class Trainer(Action):
     def should_checkpoint(self) -> bool:
         return (self.i % self.checkpoint_every) == 0
 
-    def prep_target(self, targets: dict):
-        rv = dict()
-        for k, v in targets.items():
-            if isinstance(v, torch.Tensor):
-                v = v[0].to(self.device)
-            rv[k] = v
-        return rv
+    def prep_target(self, targets):
+
+        if not isinstance(targets, list):
+            targets = [targets]
+
+        rvs = []
+        for t in targets:
+            rv = dict()
+            for k, v in t.items():
+                if isinstance(v, torch.Tensor):
+                    v = v.to(self.device)
+                rv[k] = v
+            rvs.append(rv)
+        return rvs
 
     def do_train(self, opt, scheduler):
         self.model.train()
         for batch in self.train_dl:
-            inp = batch['image'].to(self.device)
+            inp = batch['image']
+            if isinstance(inp, list):
+                inp = [i.to(self.device) for i in inp]
+            else:
+                inp = [inp.to(self.device)]
             tgt = self.prep_target(batch['target'])
             opt.zero_grad()
 
-            loss_dict = self.model(inp, [tgt])
+            loss_dict = self.model(inp, tgt)
             loss = sum(loss_dict.values())
 
             train_loss = loss.item()
@@ -116,12 +127,12 @@ class Trainer(Action):
 
         self.store.add_loss_value(self.exp_id, 'train', self.i, self.total_train_loss / len(self.train_dl))
 
-    def visualise_valid_batch(self, images, targets, outputs, _):
-        for i, (image, tmasks, output) in enumerate(zip(images, targets['masks'], outputs)):
+    def visualise_valid_batch(self, images, targets, outputs):
+        for i, (image, target, output) in enumerate(zip(images, targets, outputs)):
             image = (image.permute(1, 2, 0) * 255.).cpu().numpy().astype('uint8').copy()
 
             # draw ground truth
-            for mask in tmasks:
+            for mask in target['masks']:
                 mask = mask.cpu().numpy()
                 contours = cv2.findContours(mask, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)[0]
                 cv2.drawContours(image, contours, -1, (0, 255, 255), 1)
@@ -149,10 +160,14 @@ class Trainer(Action):
         with torch.no_grad():
             self.model.train()
             for batch in dataloader:
-                inp = batch['image'].to(self.device)
+                inp = batch['image']
+                if isinstance(inp, list):
+                    inp = [i.to(self.device) for i in inp]
+                else:
+                    inp = inp.to(self.device)
                 tgt = self.prep_target(batch['target'])
 
-                loss_dict = self.model(inp, [tgt])
+                loss_dict = self.model(inp, tgt)
                 loss = sum(loss_dict.values())
 
                 if is_test:
@@ -163,12 +178,16 @@ class Trainer(Action):
             self.model.eval()
             done_vis = False
             for batch in dataloader:
-                inp = batch['image'].to(self.device)
+                inp = batch['image']
+                if isinstance(inp, list):
+                    inp = [i.to(self.device) for i in inp]
+                else:
+                    inp = inp.to(self.device)
                 tgt = self.prep_target(batch['target'])
                 out = self.model(inp)
 
                 if not done_vis and ((self.i % self.visualise_every) == 0):
-                    self.visualise_valid_batch(inp, tgt, out, batch['source'])
+                    self.visualise_valid_batch(inp, tgt, out)
                     done_vis = True
 
                 for metric_name, metric_func in self.metrics.items():

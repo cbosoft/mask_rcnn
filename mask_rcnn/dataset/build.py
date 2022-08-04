@@ -6,9 +6,8 @@ from .coco import COCODataset
 from .split import split_dataset
 
 
-def collate_fn(*args):
-    print('COLLATE ARGS', args)
-    return args[0]
+def collate_fn(batch):
+    return {k: [b[k] for b in batch] for k in batch[0].keys()}
 
 
 def build_dataset(cfg: CfgNode):
@@ -20,6 +19,7 @@ def build_dataloaders(cfg: CfgNode):
     dl_kws = dict(
         batch_size=cfg.training.batch_size,
         drop_last=True,
+        collate_fn=collate_fn
     )
     return [
         DataLoader(ds, shuffle=cfg.training.shuffle_every_epoch if i == 0 else False, **dl_kws)
