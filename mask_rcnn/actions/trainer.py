@@ -57,20 +57,22 @@ class Trainer(Action):
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
-        if exc_type is not None:
-            if self.store is not None:
-                if exc_type is KeyboardInterrupt:
-                    status = 'CANCELLED'
-                else:
-                    status = 'ERROR'
+        # need to re-open conn to db as it is closed before getting here
+        with Database() as self.store:
+            if exc_type is not None:
+                if self.store is not None:
+                    if exc_type is KeyboardInterrupt:
+                        status = 'CANCELLED'
+                    else:
+                        status = 'ERROR'
 
-                self.store.set_exp_status(self.exp_id, status)
+                    self.store.set_exp_status(self.exp_id, status)
 
-            with open(f'{self.output_dir}/error.txt', 'w') as f:
-                f.write(format_exception(exc_type, exc_val, exc_tb))
+                with open(f'{self.output_dir}/error.txt', 'w') as f:
+                    f.write(''.join(format_exception(exc_type, exc_val, exc_tb)))
 
-        # Always checkpoint.
-        self.checkpoint()
+            # Always checkpoint.
+            self.checkpoint()
 
     @property
     def exp_id(self):
