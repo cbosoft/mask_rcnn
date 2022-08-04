@@ -62,7 +62,6 @@ def get_config() -> CfgNode:
     # glob pattern specifying the json COCO-style files describing the data used in training
     cfg.training.n_epochs = 1_000
     cfg.training.device = 'cuda:0' if torch.cuda.is_available() else 'cpu'
-    cfg.training.loss = 'nn.MSELoss'
     cfg.training.batch_size = 10
     cfg.training.shuffle_every_epoch = True
     cfg.training.metrics = [
