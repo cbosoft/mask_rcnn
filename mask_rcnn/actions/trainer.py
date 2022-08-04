@@ -163,7 +163,7 @@ class Trainer(Action):
     def save_dataset_contents(self, dataloader, tag):
         sources = []
         for d in dataloader:
-            batch_sources = np.array(d['sources'], dtype=str).flatten()
+            batch_sources = np.array(d['source'], dtype=str).flatten()
             sources.extend([os.path.normpath(s) for s in batch_sources])
 
         with open(f'{self.output_dir}/{self.prefix}dataset_{tag}_listing.txt', 'w') as f:
@@ -190,8 +190,8 @@ so that any exceptions can be properly handled, and training status can be logge
         with open(f'{self.output_dir}/model.txt', 'w') as f:
             f.write(str(self.model))
 
-        # self.save_dataset_contents(self.train_dl, 'train')
-        # self.save_dataset_contents(self.valid_dl, 'valid')
+        self.save_dataset_contents(self.train_dl, 'train')
+        self.save_dataset_contents(self.valid_dl, 'valid')
 
         opt = self.opt_t(self.model.parameters(), **self.opt_kws)
         scheduler = self.sched_t(opt, **self.sched_kws)
