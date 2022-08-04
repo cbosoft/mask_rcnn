@@ -115,4 +115,4 @@ class COCODataset(_TorchDataset):
             img = self.transforms(img)
         img = (img/255.).to(torch.float)
         # TODO resize tgt masks/boxes too?
-        return dict(image=img, target=tgt)
+        return dict(image=img, target=tgt, source=img_data.file_name)
