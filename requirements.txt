@@ -9,4 +9,4 @@ numpy
 yacs
 pytest
 tqdm
-mldb
+git+https://github.com/cbosoft/mldb
