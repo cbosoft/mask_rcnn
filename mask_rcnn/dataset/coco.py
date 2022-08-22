@@ -10,6 +10,7 @@ import torch
 from torch.utils.data import Dataset as _TorchDataset
 
 from ..config import CfgNode
+from ..progress_bar import progressbar
 
 
 class COCO_Annotation:
@@ -97,11 +98,12 @@ class COCODataset(_TorchDataset):
                 coco_dataset = json.load(f)
 
             for im_data in coco_dataset['images']:
+            for im_data in progressbar(coco_dataset['images'], unit='images', desc='1/2'):
                 im_id = im_data['id']
                 im_data['file_name'] = os.path.join(dn, im_data['file_name'])
                 images_by_id[im_id] = COCO_Image(size=size, **im_data)
 
-            for ann_data in coco_dataset['annotations']:
+            for ann_data in progressbar(coco_dataset['annotations'], unit='annotations', desc='2/2'):
                 im_id = ann_data['image_id']
                 images_by_id[im_id].annotations.append(COCO_Annotation(**ann_data))
 
