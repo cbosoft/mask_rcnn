@@ -46,16 +46,17 @@ class COCO_Annotation:
 
 class COCO_Image:
 
-    size = width, height = 256, 256
-
-    def __init__(self, *, file_name, width, height, **_):
+    def __init__(self, *, file_name, width, height, size, **_):
         self.file_name: str = file_name
         self.orig_width = width
         self.orig_height = height
+        self.size = self.width, self.height = size
         self.scale = self.scale_x, self.scale_y = self.width/self.orig_width, self.height/self.orig_height
         self.annotations: List[COCO_Annotation] = []
 
         image = cv2.imread(self.file_name, cv2.IMREAD_COLOR)
+        assert image is not None, f'Reading image "{self.file_name}" failed.'
+
         image = cv2.resize(image, self.size)
         self.image = torch.tensor(image).permute(2, 0, 1)
         self.target_dict = None
@@ -81,20 +82,21 @@ class COCODataset(_TorchDataset):
 
     @classmethod
     def from_config(cls, cfg: CfgNode):
+        size = cfg.data.size, cfg.data.size
         images_by_id = {}
         fns = []
         for pattern in cfg.data.pattern:
             fns.extend(glob(pattern))
 
         for fn in fns:
-            bn = os.path.dirname(fn)
+            dn = os.path.dirname(fn)
             with open(fn) as f:
                 coco_dataset = json.load(f)
 
             for im_data in coco_dataset['images']:
                 im_id = im_data['id']
-                im_data['file_name'] = os.path.join(bn, im_data['file_name'])
-                images_by_id[im_id] = COCO_Image(**im_data)
+                im_data['file_name'] = os.path.join(dn, im_data['file_name'])
+                images_by_id[im_id] = COCO_Image(size=size, **im_data)
 
             for ann_data in coco_dataset['annotations']:
                 im_id = ann_data['image_id']

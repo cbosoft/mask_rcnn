@@ -25,6 +25,9 @@ def get_config() -> CfgNode:
     # glob pattern or patterns specifying the json COCO-style files describing the data used in training
     cfg.data.pattern = None
 
+    # Side length of resized image (square aspect ratio)
+    cfg.data.size = 256
+
     ####################################################################################################################
     cfg.model = CfgNode()
 
