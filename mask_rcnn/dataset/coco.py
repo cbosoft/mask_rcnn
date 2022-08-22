@@ -2,6 +2,7 @@ from glob import glob
 import json
 from typing import List
 import os
+import functools
 
 import numpy as np
 import cv2
@@ -53,13 +54,15 @@ class COCO_Image:
         self.size = self.width, self.height = size
         self.scale = self.scale_x, self.scale_y = self.width/self.orig_width, self.height/self.orig_height
         self.annotations: List[COCO_Annotation] = []
+        self.target_dict = None
 
+    @functools.cached_property
+    def image(self) -> torch.Tensor:
         image = cv2.imread(self.file_name, cv2.IMREAD_COLOR)
         assert image is not None, f'Reading image "{self.file_name}" failed.'
 
         image = cv2.resize(image, self.size)
-        self.image = torch.tensor(image).permute(2, 0, 1)
-        self.target_dict = None
+        return torch.tensor(image).permute(2, 0, 1)
 
     def scale_bbox(self, bbox):
         x1, y1, x2, y2 = bbox
