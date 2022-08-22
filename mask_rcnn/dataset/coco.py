@@ -57,13 +57,17 @@ class COCO_Image:
         self.annotations: List[COCO_Annotation] = []
         self.target_dict = None
 
-    @functools.cached_property
-    def image(self) -> torch.Tensor:
+    @functools.cache
+    def _cached_get_image(self) -> torch.Tensor:
         image = cv2.imread(self.file_name, cv2.IMREAD_COLOR)
         assert image is not None, f'Reading image "{self.file_name}" failed.'
 
         image = cv2.resize(image, self.size)
         return torch.tensor(image).permute(2, 0, 1)
+
+    @property
+    def image(self):
+        return self._cached_get_image()
 
     def scale_bbox(self, bbox):
         x1, y1, x2, y2 = bbox
