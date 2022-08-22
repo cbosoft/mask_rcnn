@@ -57,7 +57,7 @@ class COCO_Image:
         self.annotations: List[COCO_Annotation] = []
         self.target_dict = None
 
-    @functools.cache
+    @functools.lru_cache(maxsize=None)
     def _cached_get_image(self) -> torch.Tensor:
         image = cv2.imread(self.file_name, cv2.IMREAD_COLOR)
         assert image is not None, f'Reading image "{self.file_name}" failed.'
