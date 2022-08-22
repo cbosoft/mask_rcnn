@@ -97,7 +97,6 @@ class COCODataset(_TorchDataset):
             with open(fn) as f:
                 coco_dataset = json.load(f)
 
-            for im_data in coco_dataset['images']:
             for im_data in progressbar(coco_dataset['images'], unit='images', desc='1/2'):
                 im_id = im_data['id']
                 im_data['file_name'] = os.path.join(dn, im_data['file_name'])
