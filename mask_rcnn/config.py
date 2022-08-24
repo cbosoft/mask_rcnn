@@ -28,6 +28,9 @@ def get_config() -> CfgNode:
     # Side length of resized image (square aspect ratio)
     cfg.data.size = 256
 
+    # TODO
+    cfg.data.max_number_images = -1
+
     ####################################################################################################################
     cfg.model = CfgNode()
 
@@ -138,6 +141,9 @@ def finalise(cfg: CfgNode):
     assert cfg.data.pattern is not None, 'cfg.data.pattern must be specified and must be a string or a list of strings.'
     if isinstance(cfg.data.pattern, str):
         cfg.data.pattern = [cfg.data.pattern]
+
+    if cfg.data.max_number_images is not None:
+        assert isinstance(cfg.data.max_number_images, int), 'cfg.data.max_number_images, if set, must be an integer.'
 
     # output dir
     cfg.output_dir = datetime.now().strftime(cfg.output_dir)

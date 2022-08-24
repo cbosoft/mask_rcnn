@@ -84,8 +84,8 @@ class COCO_Image:
 
 class COCODataset(_TorchDataset):
 
-    def __init__(self, images: List[COCO_Image], transforms=None):
-        self.images = images
+    def __init__(self, images: List[COCO_Image], max_n_images: int, transforms=None):
+        self.images = images if max_n_images is not None else images[:max_n_images]
         self.transforms = transforms
 
     @classmethod
@@ -112,7 +112,7 @@ class COCODataset(_TorchDataset):
 
         # n_categories = max([max([a.category_id for a in i.annotations]) for i in images.values()])+1
 
-        return cls([im for im in images_by_id.values() if im.annotations])
+        return cls([im for im in images_by_id.values() if im.annotations], cfg.data.max_number_images)
 
     def __len__(self):
         return len(self.images)
