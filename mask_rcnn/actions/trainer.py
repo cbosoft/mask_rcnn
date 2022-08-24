@@ -10,7 +10,7 @@ from torchinfo import summary
 from mldb import Database
 
 from ..util import to_float
-from ..config import CfgNode
+from ..config import CfgNode, as_hyperparams
 from ..progress_bar import progressbar
 from ..model import build_model
 from ..dataset import build_dataloaders
@@ -50,6 +50,8 @@ class Trainer(Action):
         self.store = None
         self.base_exp_id = datetime.now().strftime(f'%Y%m%d_%H%M%S_MaskRCNN')
 
+        self.hyperparams = as_hyperparams(config)
+
         # used by sub_classes
         self.prefix = ''
         self.as_context_manager = False
@@ -86,6 +88,20 @@ class Trainer(Action):
     def build_loaders(self, config):
         _ = self
         return build_dataloaders(config)
+
+    def store_hyperparams(self):
+        self.store: Database
+        for k, v in self.hyperparams.items():
+            self.store.add_hyperparam(self.exp_id, k, v)
+
+        self.store.add_hyperparam(self.exp_id, 'sched/kind', self.sched_t.__name__)
+        for k, v in self.sched_kws.items():
+            self.store.add_hyperparam(self.exp_id, f'sched/{k}', v)
+
+        self.store.add_hyperparam(self.exp_id, 'opt/kind', self.opt_t.__name__)
+        for k, v in self.opt_kws.items():
+            self.store.add_hyperparam(self.exp_id, f'opt/{k}', v)
+
 
     @property
     def should_checkpoint(self) -> bool:
@@ -269,6 +285,7 @@ so that any exceptions can be properly handled, and training status can be logge
             print(f'Connected to database "{self.store}"')
             self.store.set_exp_status(self.exp_id, 'TRAINING')
             self.store.set_config_file(self.exp_id, f'{self.output_dir}/config.yaml')
+            self.store_hyperparams()
             self.do_validation()
             self.bar = progressbar(range(self.n_epochs), unit='epoch')
             for _i in self.bar:

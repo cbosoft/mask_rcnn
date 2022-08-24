@@ -161,3 +161,16 @@ def finalise(cfg: CfgNode):
 
     # freeze config, making it immutable.
     cfg.freeze()
+
+
+def as_hyperparams(cfg: CfgNode) -> dict:
+    rv = dict()
+    rv['model/architecture'] = 'Mask R-CNN'  # obviously...
+    rv['model/backbone'] = cfg.model.backbone.kind
+    rv['model/pretrained'] = 'No' if cfg.model.state is not None else f'Yes - {cfg.model.state}'
+    # for k, v in dict(cfg.data).items():
+    #     rv[f'data/{k}'] = v
+    rv['training/n_epochs'] = cfg.training.n_epochs
+    rv['training/batch_size'] = cfg.training.batch_size
+    rv['training/device'] = cfg.training.device
+    return rv
