@@ -42,6 +42,7 @@ class Trainer(Action):
         self.output_dir = config.output_dir
         self.checkpoint_every = config.training.checkpoint_every
         self.visualise_every = config.training.visualise_every
+        self.should_show_visualisations = config.training.show_visualisations
         self.i = self.total_valid_loss = self.total_train_loss = self.total_test_loss = 0
         self.min_valid_loss = np.inf
         self.bar = self.last_checkpoint = None
@@ -128,6 +129,11 @@ class Trainer(Action):
         self.store.add_loss_value(self.exp_id, 'train', self.i, self.total_train_loss / len(self.train_dl))
 
     def visualise_valid_batch(self, images, targets, outputs):
+        if self.should_show_visualisations:
+            from matplotlib import pyplot as plt
+            fig, axes = plt.subplots(ncols=len(images), squeeze=False)
+            axes = axes.flatten()
+            list(map(lambda ax: ax.axis('off'), axes))
         for i, (image, target, output) in enumerate(zip(images, targets, outputs)):
             image = (image.permute(1, 2, 0) * 255.).cpu().numpy().astype('uint8').copy()
 
@@ -151,6 +157,13 @@ class Trainer(Action):
                 cv2.drawContours(image, contours, -1, (255, 0, 0), 1)
 
             cv2.imwrite(f'{self.output_dir}/seg_{i}_epoch={self.i}.jpg', image)
+
+            if self.should_show_visualisations:
+                axes[i].imshow(image[..., ::-1])
+        if self.should_show_visualisations:
+            plt.tight_layout()
+            plt.show()
+            plt.close()
 
     def validate_or_test(self, dataloader, is_test: bool):
 
