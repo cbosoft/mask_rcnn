@@ -72,7 +72,7 @@ class Particle:
         # TODO other focus metrics
         self.focus_GDER = self.fmeasure_GDER(cutout)
 
-        ih, iw, _ = orig_image.shape
+        ih, iw = orig_image.shape[:2]
         self.on_border = self._get_is_on_border(on_border_thresh, iw, ih)
 
     def __lt__(self, other: "Particle") -> bool:
