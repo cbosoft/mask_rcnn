@@ -170,7 +170,7 @@ class Trainer(Action):
             for mask in omasks:
                 mask = (mask[0].cpu().numpy() > 0.5).astype(np.uint8)
                 contours = cv2.findContours(mask, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)[0]
-                cv2.drawContours(image, contours, -1, (255, 0, 0), 1)
+                cv2.drawContours(image, contours, -1, (255, 0, 0), 3)
 
             cv2.imwrite(f'{self.output_dir}/seg_{i}_epoch={self.i}.jpg', image)
 
