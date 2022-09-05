@@ -89,7 +89,14 @@ class COCODataset(_TorchDataset):
         self.transforms = transforms
 
     @classmethod
-    def from_config(cls, cfg: CfgNode):
+    def from_config(cls, cfg: CfgNode, filter_images='none'):
+        """
+        Create dataset from COCO-format json file(s)
+
+        :param cfg:
+        :param filter_images: Whether to filter the files. 'none' for no filtering, 'empty' to remove empty (default), 'annot' to remove annotated images. The last two are useful for training and validation respectively.
+        :return:
+        """
         size = cfg.data.size, cfg.data.size
         images_by_id = {}
         fns = []
@@ -112,7 +119,16 @@ class COCODataset(_TorchDataset):
 
         # n_categories = max([max([a.category_id for a in i.annotations]) for i in images.values()])+1
 
-        return cls([im for im in images_by_id.values() if im.annotations], cfg.data.max_number_images)
+        if filter_images == 'none':
+            images = list(images_by_id.values())
+        elif filter_images == 'empty':
+            images = [im for im in images_by_id.values() if im.annotations]
+        elif filter_images == 'annot':
+            images = [im for im in images_by_id.values() if not im.annotations]
+        else:
+            raise ValueError(f'Didn\'t understand value for $filter_images ({filter_images}), should be one of "none", "empty", or "annot"')
+
+        return cls(images, cfg.data.max_number_images)
 
     def __len__(self):
         return len(self.images)
