@@ -12,20 +12,20 @@ class Particle:
     CSV_HEADER = ('image_file_name', 'width', 'length', 'aspect_ratio', 'area',
                   'perimeter', 'form_factor', 'circularity', 'convex_area',
                   'convex_perimeter', 'convexity', 'focus_GDER',
-                  'confidence_score', 'on_border')
+                  'confidence_score', 'label', 'on_border')
 
     def __init__(self, orig_img_fn: str, orig_image: np.ndarray, contour,
-                 px2um: float, conf_score: float, on_border_thresh: int):
+                 px2um: float, conf_score: float, label: int, on_border_thresh: int):
 
         if len(contour) < 3:
             raise ParticleConstructionError('small contour')
 
         self.image_file_name = orig_img_fn
         self.contour = contour
-        moments = cv2.moments(contour)
-
+        self.label = label
         self.conf_score = conf_score
 
+        moments = cv2.moments(contour)
         try:
             self.centroid = int(moments['m10'] / moments['m00']) * px2um, \
                             int(moments['m01'] / moments['m00']) * px2um
@@ -125,6 +125,7 @@ class Particle:
             centroid=[float(v) for v in self.centroid],
             focus_GDER=float(self.focus_GDER),
             confidence_score=float(self.conf_score),
+            label=int(self.label),
             on_border=self.on_border
         )
 
