@@ -19,8 +19,8 @@ class Particles:
     def __len__(self):
         return len(self.particles)
 
-    def add(self, fn: str, orig_image: np.ndarray, contour, px2um, score, on_border_thresh):
-        self.particles.append(Particle(fn, orig_image, contour, px2um, score, on_border_thresh))
+    def add(self, fn: str, orig_image: np.ndarray, contour, px2um, score, lbl, on_border_thresh):
+        self.particles.append(Particle(fn, orig_image, contour, px2um, score, lbl, on_border_thresh))
 
     def write_out(self, fn: str, comment=None):
         csv_lines = [','.join(Particle.CSV_HEADER)]
