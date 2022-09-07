@@ -75,7 +75,7 @@ class Particles:
         return rv
 
     @classmethod
-    def from_annotations(cls, path_to_json: str, on_border_thresh=5, px2um=1.25316) -> "Particles":
+    def from_annotations(cls, path_to_json: str, on_border_thresh=5, px2um=1./1.25316) -> "Particles":
         with open(path_to_json) as f:
             data = json.load(f)
 
@@ -95,11 +95,11 @@ class Particles:
             im_fn = os.path.join(
                 os.path.dirname(path_to_json),
                 imd['file_name'])
-            oimg = imread(im_fn)
+            oimg = imread(im_fn).cpu().detach().numpy()
             assert im_id in ann_by_image
             for ann in ann_by_image[im_id]:
                 ann = ann['segmentation'][0]  # There should only be one segmentation polygon per particle
                 contour = cls.annot_to_contour(ann)
-                particles.add(imd['file_name'], oimg, contour, px2um, 1.0, on_border_thresh)
+                particles.add(imd['file_name'], oimg, contour, px2um, 1.0, ann['category_id'], on_border_thresh)
 
         return particles
