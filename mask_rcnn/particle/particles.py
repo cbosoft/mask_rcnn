@@ -98,8 +98,9 @@ class Particles:
             oimg = imread(im_fn).cpu().detach().numpy()
             assert im_id in ann_by_image
             for ann in ann_by_image[im_id]:
+                lbl = ann['category_id']
                 ann = ann['segmentation'][0]  # There should only be one segmentation polygon per particle
                 contour = cls.annot_to_contour(ann)
-                particles.add(imd['file_name'], oimg, contour, px2um, 1.0, ann['category_id'], on_border_thresh)
+                particles.add(imd['file_name'], oimg, contour, px2um, 1.0, lbl, on_border_thresh)
 
         return particles
