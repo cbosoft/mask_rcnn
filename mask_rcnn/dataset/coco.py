@@ -15,7 +15,7 @@ from ..progress_bar import progressbar
 
 class COCO_Annotation:
 
-    def __init__(self, *, id, image_id, category_id, segmentation, area, bbox, iscrowd, attributes):
+    def __init__(self, *, id, image_id, category_id, segmentation, area, bbox, iscrowd, attributes=None):
         self.id = id
         self.image_id = image_id
         self.category_id = category_id
@@ -89,7 +89,7 @@ class COCODataset(_TorchDataset):
         self.transforms = transforms
 
     @classmethod
-    def from_config(cls, cfg: CfgNode, filter_images='none'):
+    def from_config(cls, cfg: CfgNode, filter_images='empty'):
         """
         Create dataset from COCO-format json file(s)
 
