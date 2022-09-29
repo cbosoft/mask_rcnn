@@ -1,7 +1,11 @@
 import os
+import json
+from datetime import datetime
 
 import numpy as np
 from matplotlib import pyplot as plt
+
+from email_notifier import EmailNotifier
 
 from mask_rcnn.config import get_config, finalise
 from mask_rcnn.model import build_model
@@ -13,111 +17,163 @@ from mask_rcnn.progress_bar import progressbar
 import cv2
 
 if __name__ == '__main__':
-    """
-    To run inference, we need three things:
-      1. Config
-      2. Model state
-      3. Some data
-    
-    The config file defines the parameters of the model so it can be built, then the state defines the weights and biases of the model.
-    """
-    CONFIG_FILE = 'training_results/2022-09-02_11-07-02/config.yaml'
-    MODEL_STATE_PATH = 'training_results/2022-09-02_11-07-02/model_state_at_epoch=50.pth'
-    DATASET_PATH = 'E:/Data/Karen Robertson data/instances_default.json'
+    with EmailNotifier(message='Mask R-CNN inference completee'):
+        """
+        To run inference, we need three things:
+          1. Config
+          2. Model state
+          3. Some data
+        
+        The config file defines the parameters of the model so it can be built, then the state defines the weights and biases of the model.
+        """
+        MODEL_STATE_PATH = 'training_results/2022-09-21_13-03-02/model_state_at_epoch=500.pth'
+        DATASET_PATH = '/home/cboyle/gits/datasets/KaRo-BeGa_2022-09-20.json'
 
-    """
-    Create the model, load state.
-    """
+        CONFIG_FILE = os.path.join(os.path.dirname(MODEL_STATE_PATH), 'config.yaml')
+        INF_DATASET_PATH = datetime.now().strftime('inference_KaRo-BeGa_%Y-%m-%d_%H-%M-%S.json')
 
-    cfg = get_config()
-    cfg.merge_from_file(CONFIG_FILE)
-    cfg.model.state = MODEL_STATE_PATH
-    cfg.data.pattern = DATASET_PATH
-    finalise(cfg)
-    model = build_model(cfg)
-    model.eval()
+        """
+        Create the model, load state.
+        """
 
-    """
-    Keep the same colours for each label as in CVAT
-    """
-    COLOUR_BY_LABEL = {
-        1: hex2rgb('#33DDFF', 'bgr'),  # elongated
-        2: hex2rgb('#FA3253', 'bgr'),  # regular
-        3: hex2rgb('#34D1B7', 'bgr'),  # spherical/circular
-        4: hex2rgb('#D7B804', 'bgr'),  # agglomerate
-        5: hex2rgb('#DDFF33', 'bgr'),  # v small
-    }
+        cfg = get_config()
+        cfg.merge_from_file(CONFIG_FILE)
+        cfg.model.state = MODEL_STATE_PATH
+        cfg.data.pattern = DATASET_PATH
+        finalise(cfg)
+        model = build_model(cfg)
+        model.eval()
 
-    """
-    Apply the model to the specified dataset. Normally, we run models on images it has not seen before (i.e. ones not used in training).
-    
-    The dataset object reads in the json files we get from CVAT, and normally it ignores images which don't have any annotations (as these are not useful in training). We can, however, run inference on these un-annotated images. By running inference on these images only, we are running inference on images the model has never seen before. 
-    """
+        """
+        Keep the same colours for each label as in CVAT
+        """
+        # COLOUR_BY_LABEL = {
+        #     1: hex2rgb('#33DDFF', 'bgr'),  # elongated
+        #     2: hex2rgb('#FA3253', 'bgr'),  # regular
+        #     3: hex2rgb('#34D1B7', 'bgr'),  # spherical/circular
+        #     4: hex2rgb('#D7B804', 'bgr'),  # agglomerate
+        #     5: hex2rgb('#DDFF33', 'bgr'),  # v small
+        # }
 
-    dataset = COCODataset.from_config(cfg, filter_images='annot')
+        # Matplotlib tab10 palette
+        COLOUR_BY_LABEL = {
+            1: hex2rgb('#1f77b4', 'bgr'),  # elongated
+            2: hex2rgb('#ff7f0e', 'bgr'),  # regular
+            3: hex2rgb('#2ca02c', 'bgr'),  # spherical
+            4: hex2rgb('#d62728', 'bgr'),  # agglomerate
+            5: hex2rgb('#9467bd', 'bgr'),  # v. small
 
-    dsname, _ = os.path.splitext(os.path.basename(DATASET_PATH))
-    output_dir = ensure_dir(f'Inference Output/{today()}_{dsname}')
+            6: hex2rgb('#8c564b', 'bgr'),  # user 1 ("other" in KaRo)
+            7: hex2rgb('#e377c2', 'bgr'),  # user 2 ("plates or platelets" in KaRo)
+            8: hex2rgb('#7f7f7f', 'bgr'),  # user 3 ("parallelipipeds" in KaRo)
+            9: hex2rgb('#bcbd22', 'bgr'),  # user 4
+            10: hex2rgb('#17becf', 'bgr'),  # user 5
+        }
 
-    # n_to_vis = 1
-    # for i, batch in enumerate(dataset):
-    #     if i >= n_to_vis:
-    #         break
-    #     inp = batch['image'].unsqueeze(0)
-    #     source = batch['source']
-    #     outname = (source
-    #                .replace(':', '-')
-    #                .replace('/', '-')
-    #                .replace('\\', '-')
-    #                .replace(' ', '_'))
-    #     if len(outname) > 40:
-    #         outname = outname[:7] + '...' + outname[-30:]
-    #     print(outname)
-    #     out = model(inp)[0]
-    #     masks = out['masks']
-    #     scores = out['scores']
-    #     labels = out['labels']
-    #     if len(masks):
-    #         vimg = visualise_output(
-    #             inp, masks, scores, labels,
-    #             colours=lambda i: COLOUR_BY_LABEL[i],
-    #             score_thresh=0.75,
-    #         )
-    #         cv2.imwrite(f'{output_dir}/{outname}', vimg)
+        LBL2STR = {
+            1: 'Elongated',
+            2: 'Regular',
+            3: 'Spherical',
+            4: 'Agglomerate',
+            5: 'V. Small',
+            6: 'Other',
+            7: 'Plate(let)',
+            8: 'Parallelepiped',
+            9: 'U4',
+            10: 'U5',
+        }
 
-    particles = Particles()
-    for batch in progressbar(dataset):
-        inp = batch['image'].unsqueeze(0)
-        oimg = imread(batch['source'])
-        rshape = inp.shape[-2:]
-        ishape = oimg.shape[-2:]
-        sy = ishape[0]/rshape[0]
-        sx = ishape[1]/rshape[1]
+        """
+        Apply the model to the specified dataset. Normally, we run models on images it has not seen before (i.e. ones not used in training).
+        
+        The dataset object reads in the json files we get from CVAT, and normally it ignores images which don't have any annotations (as these are not useful in training). We can, however, run inference on these un-annotated images. By running inference on these images only, we are running inference on images the model has never seen before. 
+        """
 
-        out = model(inp)[0]
-        masks = out['masks']
-        scores = out['scores']
-        masks = ((masks.squeeze().detach().cpu().numpy() > 0.5) * 255.).astype(np.uint8)
-        scores = scores.detach().cpu().numpy()
-        for mask, score in zip(masks, scores):
-            if score < 0.75:
-                break
-            contours = cv2.findContours(mask, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)[0]
-            if not len(contours):
-                print('empty annot?')
-                continue
-            contour = contours[0]
-            contour = contour.astype(float)
-            contour[..., 0] *= sx
-            contour[..., 1] *= sy
-            contour = contour.astype(np.int32)
-            try:
-                particles.add(batch['source'], cv2.imread(batch['source'], cv2.IMREAD_GRAYSCALE), contour, 1.26, score, 5)
-            except ParticleConstructionError as e:
-                print(e)
+        dataset = COCODataset.from_config(cfg, filter_images='annot')
 
-    lengths = [p.length for p in particles]
-    dist, edges = np.histogram(lengths, density=True)
-    bins = (edges[1:]+edges[:-1])*0.5
-    plt.plot(bins, dist)
-    plt.show()
+        dsname, _ = os.path.splitext(os.path.basename(DATASET_PATH))
+        output_dir = ensure_dir(f'inference_results/{today()}_{dsname}')
+
+        # # n_to_vis = 100
+        # for i, batch in enumerate(dataset):
+        #     # if i >= n_to_vis:
+        #     #     break
+        #     inp = batch['image'].unsqueeze(0)
+        #     source = batch['source']
+        #     outname = (source
+        #                .replace(':', '-')
+        #                .replace('/', '-')
+        #                .replace('\\', '-')
+        #                .replace(' ', '_'))
+        #     if len(outname) > 40:
+        #         outname = outname[:7] + '...' + outname[-30:]
+        #     print(outname)
+        #     out = model(inp/255)[0]
+        #     masks = out['masks']
+        #     scores = out['scores']
+        #     labels = out['labels']
+        #     if len(masks):
+        #         vimg = visualise_output(
+        #             inp, masks, scores, labels,
+        #             colours=lambda i: COLOUR_BY_LABEL[i],
+        #             score_thresh=0.75,
+        #         )
+        #         cv2.imwrite(f'{output_dir}/{outname}', vimg)
+
+        bar = progressbar(dataset)
+        for batch in bar:
+            inp = batch['image'].unsqueeze(0)
+            oimg = cv2.imread(batch['source'])
+            _, __, *rshape = inp.shape
+            *ishape, _ = oimg.shape
+            # print(rshape, ishape)
+            sy = ishape[0]/rshape[0]
+            sx = ishape[1]/rshape[1]
+            source = batch['source']
+            path_parts = source.split(os.sep)
+            outname = os.sep.join([output_dir, *path_parts[-3:]])
+            ensure_dir(os.path.dirname(outname))
+
+            out = model(inp)[0]
+            masks = out['masks']
+
+            masks = masks.detach().cpu().numpy()[:, 0]
+
+            scores = out['scores']
+            labels = out['labels'].detach().cpu().numpy()
+            # if masks.size > 0:
+            #     print(type(masks), masks.shape, np.min(masks), np.max(masks))
+            
+            # if masks.size <= 0:
+            #     continue
+
+            #masks = ((masks > 0.5) * 255.).astype(np.uint8)
+            masks = (masks * 255.).astype(np.uint8)
+            scores = scores.detach().cpu().numpy()
+            assert len(masks) == len(scores) == len(labels), f'{len(masks)} ==? {len(scores)} ==? {len(labels)}'
+            annot_count = 0
+            for mask, score, lbl in zip(masks, scores, labels):
+                # if score < 0.5:
+                #     break
+                contours = cv2.findContours(mask, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)[0]
+                if not len(contours):
+                    # raise RuntimeError('empty annot!')
+                    print('empty annot!')
+                    continue
+                contour = contours[0]
+                contour = contour.astype(float)
+                contour[:, 0, 0] *= sx
+                contour[:, 0, 1] *= sy
+                contour = contour.astype(np.int32)
+
+                colour = COLOUR_BY_LABEL[int(lbl)]
+                cv2.drawContours(oimg, [contour], 0, colour, 3)
+                text_x = np.min(contour[:, 0, 0])
+                text_y = np.min(contour[:, 0, 1])
+                lbl_str = LBL2STR[int(lbl)]
+                cv2.putText(oimg, f'{lbl_str} ({score:.3f})', (text_x, text_y), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 4, cv2.LINE_AA)
+                cv2.putText(oimg, f'{lbl_str} ({score:.3f})', (text_x, text_y), cv2.FONT_HERSHEY_SIMPLEX, 1, colour, 2, cv2.LINE_AA)
+                annot_count += 1
+            bar.set_description(f'drew {annot_count} masks on "{outname[-50:]}"')
+            assert cv2.imwrite(outname, oimg), f'Writing imag to {outname} failed!'
+
