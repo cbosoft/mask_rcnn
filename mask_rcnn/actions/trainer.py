@@ -76,7 +76,10 @@ class Trainer(Action):
                     f.write(''.join(format_exception(exc_type, exc_val, exc_tb)))
 
             # Always checkpoint.
-            self.checkpoint()
+            try:
+                self.checkpoint()
+            except:
+                pass  # If checkpoint already exists, the above will raise an exception. Ignore it.
 
     @property
     def exp_id(self):
