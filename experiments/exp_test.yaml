@@ -5,3 +5,16 @@ model:
   n_classes: 4
 training:
   visualise_every: 1
+  batch_size: 1
+  sched:
+    kind: "Step"
+    step:
+      step_size: 100
+      gamma: 0.5
+  opt:
+    adam:
+      lr: 1e-3
+  metrics:
+    - "RMSE"
+    - "IoU"
+    - "BinaryClassificationMetrics"
