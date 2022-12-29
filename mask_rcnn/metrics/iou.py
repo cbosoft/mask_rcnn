@@ -1,4 +1,4 @@
-from typing import Dict
+from typing import Dict, Union, Tuple
 
 import torch
 
@@ -32,12 +32,31 @@ class IntersectionOverUnion(MetricObject):
         return rv
 
     @staticmethod
-    def mask_iou(a: torch.Tensor, b: torch.Tensor, pixel_thresh: float) -> float:
+    def mask_iou(a: torch.Tensor, b: torch.Tensor, pixel_thresh: float, also_precision_recall=False) -> Union[float, Tuple[float, float, float]]:
         a = a > pixel_thresh
         b = b > pixel_thresh
         intersection = torch.sum(a & b)
         union = torch.sum(a | b)
-        return float(intersection / union)
+
+        tp = int(torch.sum(a & b).cpu())
+        fp = int(torch.sum(a & ~b).cpu())
+        tn = int(torch.sum(~a & ~b).cpu())
+        fn = int(torch.sum(~a & b).cpu())
+
+        iou = float(intersection / union)
+
+        if also_precision_recall:
+            try:
+                p = tp / (tp + fp)
+            except ZeroDivisionError:
+                p = 0.0
+            try:
+                r = tp / (tp + fn)
+            except ZeroDivisionError:
+                r = 0.0
+            return iou, p, r
+        else:
+            return iou
 
     @staticmethod
     def boxes_do_interset(a, b):

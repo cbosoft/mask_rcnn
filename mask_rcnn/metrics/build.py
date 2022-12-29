@@ -7,12 +7,14 @@ from .metrics_collection import MetricsCollection
 from .rmse import RMSE
 from .iou import IntersectionOverUnion
 from .classification import BinaryClassificationMetrics
+from .ap import AveragePrecision
 
 
 METRICS = dict(
     RMSE=RMSE,
     IoU=IntersectionOverUnion,
     BinaryClassificationMetrics=BinaryClassificationMetrics,
+    mAP=AveragePrecision
 )
 
 

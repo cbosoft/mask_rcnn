@@ -18,3 +18,4 @@ training:
     - "RMSE"
     - "IoU"
     - "BinaryClassificationMetrics"
+    - "mAP"
