@@ -6,6 +6,7 @@ data
 .DS_Store
 .idea
 *.un~
+tags*
 
 *videos
 Inference Output
