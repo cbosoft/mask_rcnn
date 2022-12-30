@@ -6,7 +6,9 @@ opencv-python
 torchmetrics
 matplotlib
 numpy
-yacs
 pytest
 tqdm
 git+https://github.com/cbosoft/mldb
+git+https://github.com/cbosoft/syt
+git+https://github.com/cbosoft/email_notifier
+argparse

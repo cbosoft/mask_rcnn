@@ -1,7 +1,8 @@
 import os
 from datetime import datetime
 
-from yacs.config import CfgNode
+from syt import CfgNode
+
 import torch
 
 
