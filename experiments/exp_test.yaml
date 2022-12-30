@@ -1,3 +1,4 @@
+action: xval
 data:
   pattern:
     - "data/MISC_DEV_TEST_DATA.json"
@@ -10,6 +11,7 @@ model:
   mask_roi_pooler:
     featmaps: ['0']
 training:
+  n_epochs: 20
   visualise_every: 1
   batch_size: 4
   sched:

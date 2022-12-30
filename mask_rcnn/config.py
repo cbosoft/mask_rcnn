@@ -10,8 +10,8 @@ def get_config() -> CfgNode:
     cfg = CfgNode()
 
     # What do we want to do in the experiment?
-    # Can only be 'train'.
-    # Future versions will include 'xval' (cross validation), and 'inference'.
+    # Can be 'train', 'xval'
+    # Future versions will include 'inference'.
     cfg.action = 'train'
 
     # set to True to output information useful for debug
@@ -28,6 +28,8 @@ def get_config() -> CfgNode:
 
     # Side length of resized image (square aspect ratio)
     cfg.data.size = 256
+
+    cfg.data.frac_test = 0.2
 
     # TODO
     cfg.data.max_number_images = -1
@@ -138,6 +140,9 @@ def get_config() -> CfgNode:
     # https://pytorch.org/docs/stable/generated/torch.optim.lr_scheduler.ExponentialLR.html
     cfg.training.sched.exponential = CfgNode()
     cfg.training.sched.exponential.gamma = 0.1
+
+    cfg.xval = CfgNode()
+    cfg.xval.n_folds = 5
 
     return cfg
 

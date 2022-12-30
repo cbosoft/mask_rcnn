@@ -1,10 +1,12 @@
 from ..config import CfgNode
 from .action_base import Action
 from .trainer import Trainer
+from .xval import CrossValidator
 
 
 ACTIONS_BY_NAME = dict(
-    train=Trainer
+    train=Trainer,
+    xval=CrossValidator
 )
 
 
