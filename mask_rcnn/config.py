@@ -57,8 +57,12 @@ def get_config() -> CfgNode:
     cfg.model.backbone.resnet.n = 18
 
     cfg.model.rpn_anchor_generator = CfgNode()
+    cfg.model.rpn_anchor_generator.sizes = [32, 64, 128, 256, 512]
+    cfg.model.rpn_anchor_generator.aspect_ratios = [0.5, 1.0, 2.0]
     cfg.model.roi_pooler = CfgNode()
+    cfg.model.roi_pooler.featmaps = ['0']
     cfg.model.mask_roi_pooler = CfgNode()
+    cfg.model.mask_roi_pooler.featmaps = ['0']
 
     ####################################################################################################################
     cfg.training = CfgNode()
