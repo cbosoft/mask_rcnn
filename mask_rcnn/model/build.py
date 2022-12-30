@@ -37,33 +37,34 @@ def build_backbone(cfg: CfgNode) -> nn.Module:
 
 
 def build_rpn_anchor_generator(cfg: CfgNode) -> nn.Module:
-    _ = cfg  # TODO: build up from config
+    n_feature_maps = 5  # TODO: depends on model backend
     anchor_generator = AnchorGenerator(
-        sizes=(
-            (32, 64, 128, 256, 512),
-            (32, 64, 128, 256, 512),
-            (32, 64, 128, 256, 512),
-            (32, 64, 128, 256, 512),
-            (32, 64, 128, 256, 512),
-        ),
-        aspect_ratios=(
-            (0.5, 1.0, 2.0),
-            (0.5, 1.0, 2.0),
-            (0.5, 1.0, 2.0),
-            (0.5, 1.0, 2.0),
-            (0.5, 1.0, 2.0),
-        ))
+        sizes=tuple([
+            tuple(cfg.model.rpn_anchor_generator.sizes)
+            for _ in range(n_feature_maps)
+        ]),
+        aspect_ratios=tuple([
+            tuple(cfg.model.rpn_anchor_generator.aspect_ratios)
+            for _ in range(n_feature_maps)
+        ])
+    )
     return anchor_generator
 
 
 def build_box_roi_pooler(cfg: CfgNode) -> MultiScaleRoIAlign:
-    _ = cfg  # TODO: build up from config
-    return MultiScaleRoIAlign(featmap_names=['0'], output_size=7, sampling_ratio=2)
+    return MultiScaleRoIAlign(
+        featmap_names=cfg.model.roi_pooler.featmaps,
+        output_size=7,
+        sampling_ratio=2
+    )
 
 
 def build_mask_roi_pooler(cfg: CfgNode) -> MultiScaleRoIAlign:
-    _ = cfg  # TODO: build up from config
-    return MultiScaleRoIAlign(featmap_names=['0'], output_size=14, sampling_ratio=2)
+    return MultiScaleRoIAlign(
+        featmap_names=cfg.model.mask_roi_pooler.featmaps,
+        output_size=14,
+        sampling_ratio=2
+    )
 
 
 def build_model(cfg: CfgNode) -> MaskRCNN:
@@ -75,6 +76,8 @@ def build_model(cfg: CfgNode) -> MaskRCNN:
         mask_roi_pool=build_mask_roi_pooler(cfg)
     )
 
+    print(model)
+
     if cfg.model.state:
         if isinstance(cfg.model.state, str):
             state_file = cfg.model.state
@@ -85,6 +88,5 @@ def build_model(cfg: CfgNode) -> MaskRCNN:
             with mldb.Database() as db:
                 state_file = db.get_state_file(expid, epoch)
         model.load_state_dict(torch.load(state_file))
-    # TODO initialise weights or load state
 
     return model

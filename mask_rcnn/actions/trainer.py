@@ -186,7 +186,6 @@ class Trainer(Action):
 
     def validate_or_test(self, dataloader, is_test: bool):
 
-        metrics = defaultdict(list)
         valid_or_test = 'test' if is_test else 'valid'
 
         with torch.no_grad():
@@ -207,6 +206,7 @@ class Trainer(Action):
                 else:
                     self.total_valid_loss += loss.item()
 
+            self.metrics.batch_initialise()
             self.model.eval()
             done_vis = False
             for batch in dataloader:
@@ -222,19 +222,13 @@ class Trainer(Action):
                     self.visualise_valid_batch(inp, tgt, out)
                     done_vis = True
 
-                for metric_name, metric_func in self.metrics.items():
-                    for o, t in zip(out, tgt):
-                        metric_value = metric_func(o, t)
-                        try:
-                            metric_value = to_float(metric_value)
-                        except TypeError:
-                            print(metric_name)
-                            raise
-                        metrics[f'metrics.{valid_or_test}.{metric_name}'].append(metric_value)
-                        # metrics[f'metrics.by_class.{tag}.{valid_or_test}.{metric_name}'].append(metric_value)
+                for o, t in zip(out, tgt):
+                    self.metrics.batch_update(o, t)
 
-            for key, values in metrics.items():
-                self.store.add_metric_value(self.exp_id, key, self.i, np.mean(values))
+            for key, value in self.metrics.batch_finalise().items():
+                assert isinstance(value, float)
+                self.store.add_metric_value(self.exp_id, f'metrics.{valid_or_test}.{key}', self.i, value)
+
         self.store.add_loss_value(
             self.exp_id, valid_or_test, self.i,
             (self.total_test_loss if is_test else self.total_valid_loss) / len(dataloader)
