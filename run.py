@@ -10,7 +10,7 @@ from mask_rcnn.run import run_experiment, run_template
 def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument('experiment', nargs='+')
-    parser.add_argument('--no-tmux', '-n', actions='store_true', default=False)
+    parser.add_argument('--no-tmux', '-n', action='store_true', default=False)
     return parser.parse_args()
 
 
