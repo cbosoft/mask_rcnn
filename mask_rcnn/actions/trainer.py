@@ -32,7 +32,14 @@ class Trainer(Action):
         self.should_test = False
         self.metrics = build_metrics(config)
         self.opt_t, self.opt_kws = build_optim(config)
-        self.sched_t, self.sched_kws = build_sched(config, len(self.train_dl))
+
+        self.sched_t, self.sched_kws = build_sched(
+            config,
+            # if train_dl is None, then just put a random number,
+            # these kwargs will be overwritten elsewehere
+            len(self.train_dl) if self.train_dl is not None else 100
+        )
+
 
         with open(f'{config.output_dir}/config.yaml', 'w') as f:
             f.write(config.dump())
@@ -243,6 +250,9 @@ class Trainer(Action):
         self.validate_or_test(self.test_dl, is_test=True)
 
     def save_dataset_contents(self, dataloader, tag):
+        if dataloader is None:
+            return
+
         sources = []
         for d in dataloader:
             batch_sources = np.array(d['source'], dtype=str).flatten()
