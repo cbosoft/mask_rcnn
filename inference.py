@@ -90,9 +90,13 @@ if __name__ == '__main__':
         """
 
         dataset = COCODataset.from_config(cfg, filter_images='annot')
+        assert dataset.images
 
         dsname, _ = os.path.splitext(os.path.basename(DATASET_PATH))
         output_dir = ensure_dir(f'inference_results/{today()}_{dsname}')
+        ensure_dir('patches')
+
+        output_patches = True
 
         # # n_to_vis = 100
         # for i, batch in enumerate(dataset):
@@ -124,9 +128,10 @@ if __name__ == '__main__':
         for batch in bar:
             inp = batch['image'].unsqueeze(0)
             oimg = cv2.imread(batch['source'])
+            oimg_noannot = oimg.copy()
             _, __, *rshape = inp.shape
             *ishape, _ = oimg.shape
-            # print(rshape, ishape)
+
             sy = ishape[0]/rshape[0]
             sx = ishape[1]/rshape[1]
             source = batch['source']
@@ -141,30 +146,27 @@ if __name__ == '__main__':
 
             scores = out['scores']
             labels = out['labels'].detach().cpu().numpy()
-            # if masks.size > 0:
-            #     print(type(masks), masks.shape, np.min(masks), np.max(masks))
-            
-            # if masks.size <= 0:
-            #     continue
 
-            #masks = ((masks > 0.5) * 255.).astype(np.uint8)
+            boxes = out['boxes'].detach().cpu().numpy()
+
             masks = (masks * 255.).astype(np.uint8)
             scores = scores.detach().cpu().numpy()
             assert len(masks) == len(scores) == len(labels), f'{len(masks)} ==? {len(scores)} ==? {len(labels)}'
             annot_count = 0
-            for mask, score, lbl in zip(masks, scores, labels):
-                # if score < 0.5:
-                #     break
+            for i, (mask, score, lbl, box) in enumerate(zip(masks, scores, labels, boxes)):
                 contours = cv2.findContours(mask, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)[0]
-                if not len(contours):
-                    # raise RuntimeError('empty annot!')
-                    print('empty annot!')
-                    continue
+                assert len(contours)
                 contour = contours[0]
                 contour = contour.astype(float)
                 contour[:, 0, 0] *= sx
                 contour[:, 0, 1] *= sy
                 contour = contour.astype(np.int32)
+
+                if output_patches:
+                    x1, y1, x2, y2 = box.astype(int)
+                    patch = oimg_noannot[y1:y2, x1:x2]
+                    patchname = 'patches' + os.sep + outname.replace('.bmp', f'_patch{i}.png').replace(os.sep, '-')
+                    assert cv2.imwrite(patchname, patch), 'writing patch failed!'
 
                 colour = COLOUR_BY_LABEL[int(lbl)]
                 cv2.drawContours(oimg, [contour], 0, colour, 3)
@@ -175,5 +177,5 @@ if __name__ == '__main__':
                 cv2.putText(oimg, f'{lbl_str} ({score:.3f})', (text_x, text_y), cv2.FONT_HERSHEY_SIMPLEX, 1, colour, 2, cv2.LINE_AA)
                 annot_count += 1
             bar.set_description(f'drew {annot_count} masks on "{outname[-50:]}"')
-            assert cv2.imwrite(outname, oimg), f'Writing imag to {outname} failed!'
+            assert cv2.imwrite(outname, oimg), f'Writing image to {outname} failed!'
 
