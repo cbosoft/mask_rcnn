@@ -30,7 +30,6 @@ class MetricsCollection(MetricObject):
             d = metric.batch_finalise()
             assert not set(d).intersection(rv)
             rv.update(d)
-        print(rv)
         return rv
 
     def score_filter(self, out: dict):
@@ -46,6 +45,9 @@ class MetricsCollection(MetricObject):
         matched up (as best as possible) to target objects. This method performs this alignment by looking at objects
         detected and comparing them to targets using IoU. Objects detected with a high IoU with a target are matched up
         (indicating that the detected object specifically corresponds to that target).
+
+        This works in basically the same way as the PyTorch `Matcher` utility:
+        https://github.com/pytorch/vision/blob/master/torchvision/models/detection/_utils.py#L314
 
         :param out: Dict[str, torch.Tensor] of results of detection (i.e. output from model)
         :param tgt: Dict[str, torch.Tensor] of targets
