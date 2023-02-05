@@ -12,3 +12,5 @@ git+https://github.com/cbosoft/mldb
 git+https://github.com/cbosoft/syt
 git+https://github.com/cbosoft/email_notifier
 argparse
+imutils
+scipy
