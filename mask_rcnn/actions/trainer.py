@@ -318,6 +318,26 @@ so that any exceptions can be properly handled, and training status can be logge
                 self.do_test()
 
             self.store.set_exp_status(self.exp_id, 'COMPLETE')
+            try:
+                self.checkpoint()
+            except:
+                pass
+        self.deploy(f'{self.output_dir}/{self.prefix}model')
+
+    def deploy(self, path_no_ext: str):
+        self.model.eval()
+
+        assert not path_no_ext.endswith('.ts')
+        path = path_no_ext + '.ts'
+        print(f'Deploying {self.model.__class__.__name__} (CPU) to {path!r}')
+        scripted = torch.jit.script(self.model.cpu())
+        torch.jit.save(scripted, path)
+
+        if torch.cuda.is_available():
+            path = path_no_ext + '_cuda.ts'
+            print(f'Deploying {self.model.__class__.__name__} (CUDA) to {path!r}')
+            scripted = torch.jit.script(self.model.cuda())
+            scripted.save(path)
 
     def act(self):
         self.train()
