@@ -17,7 +17,7 @@ from mask_rcnn.progress_bar import progressbar
 import cv2
 
 if __name__ == '__main__':
-    with EmailNotifier(message='Mask R-CNN inference completee'):
+    with EmailNotifier(message='Mask R-CNN inference complete'):
         """
         To run inference, we need three things:
           1. Config
