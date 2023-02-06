@@ -98,13 +98,16 @@ class COCODataset(_TorchDataset):
         :return:
         """
         size = cfg.data.size, cfg.data.size
-        images_by_id = {}
+        images = []
         fns = []
         for pattern in cfg.data.pattern:
             fns.extend(glob(pattern))
+        
+        assert fns, f'No datasets found! Double check cfg.data.pattern: {cfg.data.pattern}'
 
         for fn in fns:
             dn = os.path.dirname(fn)
+            images_by_id = {}
             with open(fn) as f:
                 coco_dataset = json.load(f)
 
@@ -116,15 +119,17 @@ class COCODataset(_TorchDataset):
             for ann_data in progressbar(coco_dataset['annotations'], unit='annotations', desc='2/2'):
                 im_id = ann_data['image_id']
                 images_by_id[im_id].annotations.append(COCO_Annotation(**ann_data))
+            
+            images.extend(images_by_id.values())
 
         # n_categories = max([max([a.category_id for a in i.annotations]) for i in images.values()])+1
 
         if filter_images == 'none':
-            images = list(images_by_id.values())
+            pass
         elif filter_images == 'empty':
-            images = [im for im in images_by_id.values() if im.annotations]
+            images = [im for im in images if im.annotations]
         elif filter_images == 'annot':
-            images = [im for im in images_by_id.values() if not im.annotations]
+            images = [im for im in images if not im.annotations]
         else:
             raise ValueError(f'Didn\'t understand value for $filter_images ({filter_images}), should be one of "none", "empty", or "annot"')
 
