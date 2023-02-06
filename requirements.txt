@@ -8,7 +8,9 @@ matplotlib
 numpy
 pytest
 tqdm
+psycopg2
 git+https://github.com/cbosoft/mldb
+yacs
 git+https://github.com/cbosoft/syt
 git+https://github.com/cbosoft/email_notifier
 argparse
