@@ -111,6 +111,8 @@ class COCODataset(_TorchDataset):
             with open(fn) as f:
                 coco_dataset = json.load(f)
 
+            images_by_id = {}
+
             for im_data in progressbar(coco_dataset['images'], unit='images', desc='1/2'):
                 im_id = im_data['id']
                 im_data['file_name'] = os.path.join(dn, im_data['file_name'])
@@ -120,18 +122,22 @@ class COCODataset(_TorchDataset):
                 im_id = ann_data['image_id']
                 images_by_id[im_id].annotations.append(COCO_Annotation(**ann_data))
             
-            images.extend(images_by_id.values())
+            orig_n_images = len(images_by_id)
+            if filter_images == 'none':
+                images_filtered = list(images_by_id)
+            elif filter_images == 'empty':
+                images_filtered = [im for im in images_by_id.values() if im.annotations]
+            elif filter_images == 'annot':
+                images_filtered = [im for im in images_by_id.values() if not im.annotations]
+            else:
+                raise ValueError(f'Didn\'t understand value for $filter_images ({filter_images}), should be one of "none", "empty", or "annot"')
+            n_images = len(images_filtered)
+            if n_images < orig_n_images:
+                print(f'Filtered {orig_n_images - n_images} {filter_images} images from dataset "{fn}" ({n_images} remain).')
 
-        # n_categories = max([max([a.category_id for a in i.annotations]) for i in images.values()])+1
+            images.extend(images_filtered)
 
-        if filter_images == 'none':
-            pass
-        elif filter_images == 'empty':
-            images = [im for im in images if im.annotations]
-        elif filter_images == 'annot':
-            images = [im for im in images if not im.annotations]
-        else:
-            raise ValueError(f'Didn\'t understand value for $filter_images ({filter_images}), should be one of "none", "empty", or "annot"')
+        print(f'{len(images)} total images.')
 
         return cls(images, cfg.data.max_number_images)
 
