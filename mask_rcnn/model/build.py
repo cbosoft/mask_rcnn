@@ -87,6 +87,6 @@ def build_model(cfg: CfgNode) -> MaskRCNN:
             expid, epoch = cfg.model.state
             with mldb.Database() as db:
                 state_file = db.get_state_file(expid, epoch)
-        model.load_state_dict(torch.load(state_file))
+        model.load_state_dict(torch.load(state_file, map_location=cfg.training.device))
 
     return model
