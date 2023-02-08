@@ -96,9 +96,16 @@ if __name__ == '__main__':
         with open(DATASET_PATH) as f:
             data = json.load(f)
         
-        # data['annotations'] = annots = []
+        annots_by_id = {}
+        for annot in data['annotations']:
+            im_id = data['image_id']
+            if im_id not in annots_by_id:
+                annots_by_id[im_id] = []
+            annots_by_id[im_id].append(annot)
+        
         for image in tqdm(data['images'][:25]):
             image_id = image['id']
+            annots_by_id[image_id] = []  # clear annotations from this image
             sx = image['width']/256.
             sy = image['height']/256.
             file_name = os.path.join(DATASET_PATH[:-5], image['file_name'])
@@ -130,8 +137,8 @@ if __name__ == '__main__':
                 annot[::2] = contour[:, 0, 0]*sx
                 annot[1::2] = contour[:, 0, 1]*sy
                 annot = [int(a) for a in annot]
-                annots.append(dict(
-                    id=len(annots),
+                annots_by_id[image_id].append(dict(
+                    id=-1,
                     image_id=image_id,
                     category_id=int(lbl),
                     bbox=[int(x1), int(y1), int(w), int(h)],
@@ -139,6 +146,12 @@ if __name__ == '__main__':
                     area=float(w*h),
                     iscrowd=0,
                 ))
+        
+        data['annotations'] = []
+        for annots in annots_by_id.values():
+            for annot in annots:
+                annot['id'] = len(data['annotations'])
+                data['annotations'].append(annot)
                 
         with open(DATASET_PATH, 'w') as f:
             json.dump(data, f)
