@@ -2,7 +2,6 @@ from glob import glob
 import json
 from typing import List
 import os
-import functools
 
 import numpy as np
 import cv2
@@ -32,10 +31,9 @@ class COCO_Annotation:
         self.iscrowd = iscrowd
         self.attributes = attributes
 
-    def get_mask(self, size, scale):
-        w, h = size
+    def get_mask(self, size, scale=(1.0, 1.0)):
         sx, sy = scale
-        mask = np.zeros((w, h), dtype='uint8')
+        mask = np.zeros(size, dtype='uint8')
         seg = []
         for segi in self.segmentation:
             segi = np.copy(segi).astype(float)
@@ -48,36 +46,27 @@ class COCO_Annotation:
 
 class COCO_Image:
 
-    def __init__(self, *, file_name, width, height, size, **_):
+    def __init__(self, *, file_name, width, height, **_):
         self.file_name: str = file_name
         self.orig_width = width
         self.orig_height = height
-        self.size = self.width, self.height = size
-        self.scale = self.scale_x, self.scale_y = self.width/self.orig_width, self.height/self.orig_height
         self.annotations: List[COCO_Annotation] = []
         self.target_dict = None
 
-    @functools.lru_cache(maxsize=None)
-    def _cached_get_image(self) -> torch.Tensor:
+    def _get_image(self) -> torch.Tensor:
         image = cv2.imread(self.file_name, cv2.IMREAD_COLOR)
         assert image is not None, f'Reading image "{self.file_name}" failed.'
-
-        image = cv2.resize(image, self.size)
         return torch.tensor(image).permute(2, 0, 1)
 
     @property
     def image(self):
-        return self._cached_get_image()
-
-    def scale_bbox(self, bbox):
-        x1, y1, x2, y2 = bbox
-        return self.scale_x*x1, self.scale_y*y1, self.scale_x*x2, self.scale_y*y2
+        return self._get_image()
 
     def get_target_dict(self) -> dict:
         if self.target_dict is None:
-            boxes = torch.tensor([self.scale_bbox(a.bbox) for a in self.annotations]).float()
+            boxes = torch.tensor([a.bbox for a in self.annotations]).float()
             labels = torch.tensor([a.category_id for a in self.annotations], dtype=torch.int64)
-            masks = torch.tensor(np.array([a.get_mask(self.size, self.scale) for a in self.annotations]), dtype=torch.uint8)
+            masks = torch.tensor(np.array([a.get_mask((self.orig_height, self.orig_width)) for a in self.annotations]), dtype=torch.uint8)
             self.target_dict = dict(boxes=boxes, labels=labels, masks=masks)
         return self.target_dict
 
@@ -97,7 +86,6 @@ class COCODataset(_TorchDataset):
         :param filter_images: Whether to filter the files. 'none' for no filtering, 'empty' to remove empty (default), 'annot' to remove annotated images. The last two are useful for training and validation respectively.
         :return:
         """
-        size = cfg.data.size, cfg.data.size
         images = []
         fns = []
         for pattern in cfg.data.pattern:
@@ -107,7 +95,6 @@ class COCODataset(_TorchDataset):
 
         for fn in fns:
             dn = os.path.dirname(fn)
-            images_by_id = {}
             with open(fn) as f:
                 coco_dataset = json.load(f)
 
@@ -116,7 +103,7 @@ class COCODataset(_TorchDataset):
             for im_data in progressbar(coco_dataset['images'], unit='images', desc='1/2'):
                 im_id = im_data['id']
                 im_data['file_name'] = os.path.join(dn, im_data['file_name'])
-                images_by_id[im_id] = COCO_Image(size=size, **im_data)
+                images_by_id[im_id] = COCO_Image(**im_data)
 
             for ann_data in progressbar(coco_dataset['annotations'], unit='annotations', desc='2/2'):
                 im_id = ann_data['image_id']
@@ -151,5 +138,4 @@ class COCODataset(_TorchDataset):
         if self.transforms:
             img = self.transforms(img)
         img = (img/255.).to(torch.float)
-        # TODO resize tgt masks/boxes too?
         return dict(image=img, target=tgt, source=img_data.file_name)
