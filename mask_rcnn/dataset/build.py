@@ -18,8 +18,11 @@ def build_dataloaders(cfg: CfgNode):
     ds = build_dataset(cfg)
     dl_kws = dict(
         batch_size=cfg.training.batch_size,
+        # shuffle=True,
         drop_last=True,
-        collate_fn=collate_fn
+        collate_fn=collate_fn,
+        num_workers=0,
+        pin_memory=True,
     )
     return [
         DataLoader(ds, shuffle=cfg.training.shuffle_every_epoch if i == 0 else False, **dl_kws)
