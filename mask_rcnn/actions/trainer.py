@@ -17,6 +17,7 @@ from ..dataset import build_dataloaders
 from ..metrics import build_metrics
 from ..optim import build_optim
 from ..sched import build_sched
+from ..augmentations import build_augmentations
 from .action_base import Action
 
 
@@ -32,6 +33,7 @@ class Trainer(Action):
         self.should_test = False
         self.metrics = build_metrics(config)
         self.opt_t, self.opt_kws = build_optim(config)
+        self.transform = build_augmentations(config)
 
         self.sched_t, self.sched_kws = build_sched(
             config,
@@ -136,11 +138,13 @@ class Trainer(Action):
         self.model.train()
         for batch in self.train_dl:
             inp = batch['image']
+            tgt = batch['target']
+            inp, tgt = self.transform(inp, tgt)
             if isinstance(inp, list):
                 inp = [i.to(self.device) for i in inp]
             else:
                 inp = [inp.to(self.device)]
-            tgt = self.prep_target(batch['target'])
+            tgt = self.prep_target(tgt)
             opt.zero_grad()
 
             loss_dict = self.model(inp, tgt)
