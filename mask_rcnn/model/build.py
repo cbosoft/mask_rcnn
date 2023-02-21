@@ -67,7 +67,7 @@ def build_mask_roi_pooler(cfg: CfgNode) -> MultiScaleRoIAlign:
     )
 
 
-def build_model(cfg: CfgNode) -> MaskRCNN:
+def build_model(cfg: CfgNode, quiet=False) -> MaskRCNN:
     model = MaskRCNN(
         backbone=build_backbone(cfg),
         num_classes=cfg.model.n_classes,
@@ -80,7 +80,8 @@ def build_model(cfg: CfgNode) -> MaskRCNN:
         max_size=cfg.data.max_size,
     )
 
-    print(model)
+    if not quiet:
+        print(model)
 
     if cfg.model.state:
         if isinstance(cfg.model.state, str):
