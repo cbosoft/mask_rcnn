@@ -73,7 +73,11 @@ def build_model(cfg: CfgNode) -> MaskRCNN:
         num_classes=cfg.model.n_classes,
         rpn_anchor_generator=build_rpn_anchor_generator(cfg),
         box_roi_pool=build_box_roi_pooler(cfg),
-        mask_roi_pool=build_mask_roi_pooler(cfg)
+        mask_roi_pool=build_mask_roi_pooler(cfg),
+        image_mean=[0.485, 0.456, 0.406],
+        image_std=[0.229, 0.224, 0.225],
+        min_size=cfg.data.min_size,
+        max_size=cfg.data.max_size,
     )
 
     print(model)

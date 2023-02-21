@@ -26,13 +26,17 @@ def get_config() -> CfgNode:
     # glob pattern or patterns specifying the json COCO-style files describing the data used in training
     cfg.data.pattern = None
 
-    # Side length of resized image (square aspect ratio)
-    cfg.data.size = 256
+    cfg.data.max_size = 1024
+    cfg.data.min_size = 320
 
     cfg.data.frac_test = 0.2
 
     # TODO
     cfg.data.max_number_images = -1
+
+    cfg.data.augmentations = [
+        # 'RandomFlip()'
+    ]
 
     ####################################################################################################################
     cfg.model = CfgNode()
@@ -60,6 +64,7 @@ def get_config() -> CfgNode:
     cfg.model.backbone.resnet.n = 18
 
     cfg.model.rpn_anchor_generator = CfgNode()
+    # affects GPU usage
     cfg.model.rpn_anchor_generator.sizes = [32, 64, 128, 256, 512]
     cfg.model.rpn_anchor_generator.aspect_ratios = [0.5, 1.0, 2.0]
     

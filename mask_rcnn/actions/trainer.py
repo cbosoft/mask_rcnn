@@ -1,5 +1,4 @@
 import os
-from collections import defaultdict
 from datetime import datetime
 from traceback import format_exception
 
@@ -9,7 +8,7 @@ import cv2
 from torchinfo import summary
 from mldb import Database
 
-from ..util import to_float
+from ..classes import bgr_colour_for_class
 from ..config import CfgNode, as_hyperparams
 from ..progress_bar import progressbar
 from ..model import build_model
@@ -17,6 +16,7 @@ from ..dataset import build_dataloaders
 from ..metrics import build_metrics
 from ..optim import build_optim
 from ..sched import build_sched
+from ..augmentations import build_augmentations
 from .action_base import Action
 
 
@@ -32,6 +32,7 @@ class Trainer(Action):
         self.should_test = False
         self.metrics = build_metrics(config)
         self.opt_t, self.opt_kws = build_optim(config)
+        self.transform = build_augmentations(config)
 
         self.sched_t, self.sched_kws = build_sched(
             config,
@@ -136,11 +137,13 @@ class Trainer(Action):
         self.model.train()
         for batch in self.train_dl:
             inp = batch['image']
+            tgt = batch['target']
+            inp, tgt = self.transform(inp, tgt)
             if isinstance(inp, list):
                 inp = [i.to(self.device) for i in inp]
             else:
                 inp = [inp.to(self.device)]
-            tgt = self.prep_target(batch['target'])
+            tgt = self.prep_target(tgt)
             opt.zero_grad()
 
             loss_dict = self.model(inp, tgt)
@@ -163,24 +166,28 @@ class Trainer(Action):
         for i, (image, target, output) in enumerate(zip(images, targets, outputs)):
             image = (image.permute(1, 2, 0) * 255.).cpu().numpy().astype('uint8').copy()
 
+            # draw prediction
+            omasks, oscores, olabels = output['masks'], output['scores'], output['labels']
+            msl = list(zip(*filter(lambda mbs: mbs[1] > 0.1, zip(omasks, oscores, olabels))))
+            if msl:
+                omasks, oscores, olabels = msl
+            else:
+                omasks, oscores, olabels = [], [], []
+
+            for score, mask, lbl in zip(oscores, omasks, olabels):
+                mask = (mask[0].cpu().numpy() > 0.5).astype(np.uint8)
+                # overlay_mask_with_opacity(image, mask, (255, 0, 0), 0.5)
+                contours = cv2.findContours(mask, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)[0]
+                colour = bgr_colour_for_class(lbl)
+                cv2.drawContours(image, contours, -1, colour, -1)
+
             # draw ground truth
-            for mask in target['masks']:
+            for mask, lbl in zip(target['masks'], target['labels']):
                 mask = mask.cpu().numpy()
                 contours = cv2.findContours(mask, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)[0]
-                cv2.drawContours(image, contours, -1, (0, 255, 255), 1)
-
-            # draw prediction
-            omasks, oscores = output['masks'], output['scores']
-            # masks_and_scores = list(zip(*filter(lambda mbs: mbs[-1] > 0.5, zip(omasks, oscores))))
-            # if masks_and_scores:
-            #     omasks, oscores = masks_and_scores
-            # else:
-            #     omasks, oscores = [], []
-
-            for mask in omasks:
-                mask = (mask[0].cpu().numpy() > 0.5).astype(np.uint8)
-                contours = cv2.findContours(mask, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)[0]
-                cv2.drawContours(image, contours, -1, (255, 0, 0), 3)
+                colour = bgr_colour_for_class(int(lbl))
+                cv2.drawContours(image, contours, -1, (0, 0, 0), 2)
+                cv2.drawContours(image, contours, -1, colour, 1)
 
             cv2.imwrite(f'{self.output_dir}/seg_{i}_epoch={self.i}.jpg', image)
 
