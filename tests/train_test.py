@@ -10,5 +10,5 @@ def test_trainer():
     cfg.model.n_classes = 4
     cfg.training.n_epochs = 1
     finalise(cfg)
-    trainer = Trainer(cfg)
-    trainer.train()
+    with Trainer(cfg) as trainer:
+        trainer.train()
