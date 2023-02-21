@@ -1,20 +1,14 @@
 import os
 import json
-from datetime import datetime
 
 from tqdm import tqdm
 import numpy as np
-from matplotlib import pyplot as plt
 import torch
 
-from email_notifier import EmailNotifier
+# from email_notifier import EmailNotifier
 
 from mask_rcnn.config import get_config, finalise
 from mask_rcnn.model import build_model
-from mask_rcnn.util import visualise_output, hex2rgb, ensure_dir, today, imread
-from mask_rcnn.dataset.coco import COCODataset
-from mask_rcnn.particle import Particles, ParticleConstructionError
-from mask_rcnn.progress_bar import progressbar
 
 import cv2
 
@@ -29,11 +23,10 @@ if __name__ == '__main__':
         
         The config file defines the parameters of the model so it can be built, then the state defines the weights and biases of the model.
         """
-        MODEL_STATE_PATH = 'training_results/2022-10-24_12-03-25/model_state_at_epoch=500.pth'
-        DATASET_PATH = '/Volumes/1TB Data/Data/DF/Kinetics.json'
+        MODEL_STATE_PATH = 'training_results/2022-10-13_11-01-20/model_state_at_epoch=500.pth'
+        DATASET_PATH = r'D:\Data\Industrial\G.json'
 
         CONFIG_FILE = os.path.join(os.path.dirname(MODEL_STATE_PATH), 'config.yaml')
-        INF_DATASET_PATH = datetime.now().strftime('inference_DF_%Y-%m-%d_%H-%M-%S.json')
 
         """
         Create the model, load state.
@@ -43,49 +36,10 @@ if __name__ == '__main__':
         cfg.merge_from_file(CONFIG_FILE)
         cfg.model.state = MODEL_STATE_PATH
         cfg.data.pattern = DATASET_PATH
-        cfg.training.device = 'cpu'
+        # cfg.training.device = 'cpu'
         finalise(cfg)
         model = build_model(cfg)
         model.eval()
-
-        """
-        Keep the same colours for each label as in CVAT
-        """
-        # COLOUR_BY_LABEL = {
-        #     1: hex2rgb('#33DDFF', 'bgr'),  # elongated
-        #     2: hex2rgb('#FA3253', 'bgr'),  # regular
-        #     3: hex2rgb('#34D1B7', 'bgr'),  # spherical/circular
-        #     4: hex2rgb('#D7B804', 'bgr'),  # agglomerate
-        #     5: hex2rgb('#DDFF33', 'bgr'),  # v small
-        # }
-
-        # Matplotlib tab10 palette
-        COLOUR_BY_LABEL = {
-            1: hex2rgb('#1f77b4', 'bgr'),  # elongated
-            2: hex2rgb('#ff7f0e', 'bgr'),  # regular
-            3: hex2rgb('#2ca02c', 'bgr'),  # spherical
-            4: hex2rgb('#d62728', 'bgr'),  # agglomerate
-            5: hex2rgb('#9467bd', 'bgr'),  # v. small
-
-            6: hex2rgb('#8c564b', 'bgr'),  # user 1 ("other" in KaRo)
-            7: hex2rgb('#e377c2', 'bgr'),  # user 2 ("plates or platelets" in KaRo)
-            8: hex2rgb('#7f7f7f', 'bgr'),  # user 3 ("parallelipipeds" in KaRo)
-            9: hex2rgb('#bcbd22', 'bgr'),  # user 4
-            10: hex2rgb('#17becf', 'bgr'),  # user 5
-        }
-
-        LBL2STR = {
-            1: 'Elongated',
-            2: 'Regular',
-            3: 'Spherical',
-            4: 'Agglomerate',
-            5: 'V. Small',
-            6: 'Other',
-            7: 'Plate(let)',
-            8: 'Parallelepiped',
-            9: 'U4',
-            10: 'U5',
-        }
 
         """
         Apply the model to the specified dataset. Normally, we run models on images it has not seen before (i.e. ones not used in training).
@@ -98,12 +52,12 @@ if __name__ == '__main__':
         
         annots_by_id = {}
         for annot in data['annotations']:
-            im_id = data['image_id']
+            im_id = annot['image_id']
             if im_id not in annots_by_id:
                 annots_by_id[im_id] = []
             annots_by_id[im_id].append(annot)
         
-        for image in tqdm(data['images'][:25]):
+        for image in tqdm(data['images']):
             image_id = image['id']
             annots_by_id[image_id] = []  # clear annotations from this image
             sx = image['width']/256.
