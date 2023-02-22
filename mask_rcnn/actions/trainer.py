@@ -144,6 +144,8 @@ class Trainer(Action):
 
     def validate_or_test(self, dataloader, is_test: bool):
 
+        assert dataloader is not None, 'Error: cannot run validation on None dataset'
+
         valid_or_test = 'test' if is_test else 'valid'
 
         coco_images = dict()
@@ -217,7 +219,8 @@ class Trainer(Action):
         )
 
     def do_validation(self):
-        self.validate_or_test(self.valid_dl, is_test=False)
+        if self.valid_dl is not None:
+            self.validate_or_test(self.valid_dl, is_test=False)
 
     def do_test(self):
         assert self.should_test
