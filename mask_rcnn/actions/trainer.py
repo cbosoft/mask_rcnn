@@ -52,6 +52,7 @@ class Trainer(Action):
         self.i = self.total_valid_loss = self.total_train_loss = self.total_test_loss = 0
         self.min_valid_loss = np.inf
         self.bar = self.last_checkpoint = None
+        self.displayed_metrics = {}
 
         self.store = None
         self.base_exp_id = datetime.now().strftime(f'%Y-%m-%d_%H-%M-%S_MaskRCNN')
@@ -201,10 +202,14 @@ class Trainer(Action):
 
         coco_metrics = coco_eval_datasets(coco_data_gt, coco_data_dt)
         for k, v in coco_metrics.items():
-            print(k, v)
             self.store.add_metric_value(
                 self.exp_id, f'{valid_or_test}.{k}', self.i, v
             )
+
+        self.displayed_metrics = dict(
+            AP50=coco_metrics['AP50'],
+            mAP=coco_metrics['mAP'],
+        )
 
         self.store.add_loss_value(
             self.exp_id, valid_or_test, self.i,
@@ -244,6 +249,7 @@ so that any exceptions can be properly handled, and training status can be logge
 ''')
 
         self.i = self.total_valid_loss = self.total_train_loss = 0
+        self.displayed_metrics = {}
 
         self.device = torch.device(self.device)
         print(f'Running on "{self.device}".')
@@ -318,11 +324,11 @@ so that any exceptions can be properly handled, and training status can be logge
         self.store.add_state_file(self.exp_id, self.i, state_path)
 
     def update_progress(self):
-        desc = f'{self.prefix}t:{self.total_train_loss / len(self.train_dl):.2e}|v:{self.total_valid_loss / len(self.valid_dl):.2e}|'
-        if self.last_checkpoint is None:
-            desc += '!*'
-        else:
-            desc += f'c:{self.last_checkpoint}'
-            if self.i > self.last_checkpoint:
-                desc += '*'
+        train_loss = self.total_train_loss / len(self.train_dl)
+        valid_loss = self.total_valid_loss / len(self.valid_dl)
+        divergence = valid_loss / train_loss
+        # desc = f'{self.prefix}t:{self.total_train_loss / len(self.train_dl):.2e}|v:{self.total_valid_loss / len(self.valid_dl):.2e}|'
+        desc = f'v/t:{divergence:.2f}'
+        for k, v in self.displayed_metrics.items():
+            desc += f'|{k}:{v:.2f}'
         self.bar.set_description(desc, False)
