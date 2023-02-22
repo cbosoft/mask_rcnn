@@ -4,11 +4,10 @@ from traceback import format_exception
 
 import torch
 import numpy as np
-import cv2
 from torchinfo import summary
 from mldb import Database
 
-from ..classes import bgr_colour_for_class
+from ..visualisation import visualise_valid_batch
 from ..config import CfgNode, as_hyperparams
 from ..progress_bar import progressbar
 from ..model import build_model
@@ -157,47 +156,6 @@ class Trainer(Action):
 
         self.store.add_loss_value(self.exp_id, 'train', self.i, self.total_train_loss / len(self.train_dl))
 
-    def visualise_valid_batch(self, images, targets, outputs):
-        if self.should_show_visualisations:
-            from matplotlib import pyplot as plt
-            fig, axes = plt.subplots(ncols=len(images), squeeze=False)
-            axes = axes.flatten()
-            list(map(lambda ax: ax.axis('off'), axes))
-        for i, (image, target, output) in enumerate(zip(images, targets, outputs)):
-            image = (image.permute(1, 2, 0) * 255.).cpu().numpy().astype('uint8').copy()
-
-            # draw prediction
-            omasks, oscores, olabels = output['masks'], output['scores'], output['labels']
-            msl = list(zip(*filter(lambda mbs: mbs[1] > 0.1, zip(omasks, oscores, olabels))))
-            if msl:
-                omasks, oscores, olabels = msl
-            else:
-                omasks, oscores, olabels = [], [], []
-
-            for score, mask, lbl in zip(oscores, omasks, olabels):
-                mask = (mask[0].cpu().numpy() > 0.5).astype(np.uint8)
-                # overlay_mask_with_opacity(image, mask, (255, 0, 0), 0.5)
-                contours = cv2.findContours(mask, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)[0]
-                colour = bgr_colour_for_class(lbl)
-                cv2.drawContours(image, contours, -1, colour, -1)
-
-            # draw ground truth
-            for mask, lbl in zip(target['masks'], target['labels']):
-                mask = mask.cpu().numpy()
-                contours = cv2.findContours(mask, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)[0]
-                colour = bgr_colour_for_class(int(lbl))
-                cv2.drawContours(image, contours, -1, (0, 0, 0), 2)
-                cv2.drawContours(image, contours, -1, colour, 1)
-
-            cv2.imwrite(f'{self.output_dir}/seg_{i}_epoch={self.i}.jpg', image)
-
-            if self.should_show_visualisations:
-                axes[i].imshow(image[..., ::-1])
-        if self.should_show_visualisations:
-            plt.tight_layout()
-            plt.show()
-            plt.close()
-
     def validate_or_test(self, dataloader, is_test: bool):
 
         valid_or_test = 'test' if is_test else 'valid'
@@ -233,7 +191,12 @@ class Trainer(Action):
                 out = self.model(inp)
 
                 if not done_vis and ((self.i % self.visualise_every) == 0):
-                    self.visualise_valid_batch(inp, tgt, out)
+                    visualise_valid_batch(
+                        inp, tgt, out,
+                        self.should_show_visualisations,
+                        output_dir=self.output_dir,
+                        epoch=self.i,
+                    )
                     done_vis = True
 
                 for o, t in zip(out, tgt):
