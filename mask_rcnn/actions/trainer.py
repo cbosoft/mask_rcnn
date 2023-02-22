@@ -56,7 +56,7 @@ class Trainer(Action):
         self.bar = self.last_checkpoint = None
 
         self.store = None
-        self.base_exp_id = datetime.now().strftime(f'%Y%m%d_%H%M%S_MaskRCNN')
+        self.base_exp_id = datetime.now().strftime(f'%Y-%m-%d_%H-%M-%S_MaskRCNN')
 
         self.hyperparams = as_hyperparams(config)
 
