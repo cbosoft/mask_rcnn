@@ -271,7 +271,8 @@ so that any exceptions can be properly handled, and training status can be logge
                 self.do_train(opt, scheduler)
 
                 self.total_valid_loss = 0.0
-                self.do_validation()
+                if self.valid_dl is not None:
+                    self.do_validation()
 
                 if self.should_checkpoint:
                     self.checkpoint()
