@@ -103,6 +103,7 @@ class COCODataset(_TorchDataset):
             for im_data in progressbar(coco_dataset['images'], unit='images', desc='1/2'):
                 im_id = im_data['id']
                 im_data['file_name'] = os.path.join(dn, im_data['file_name'])
+                im_data['file_name'] = im_data['file_name'].replace('\\', '/')
                 images_by_id[im_id] = COCO_Image(**im_data)
 
             for ann_data in progressbar(coco_dataset['annotations'], unit='annotations', desc='2/2'):
