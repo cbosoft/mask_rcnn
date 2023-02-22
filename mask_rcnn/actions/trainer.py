@@ -7,12 +7,12 @@ import numpy as np
 from torchinfo import summary
 from mldb import Database
 
+from ..coco_evaluation import coco_eval_datasets, update_coco_datasets_from_batch
 from ..visualisation import visualise_valid_batch
 from ..config import CfgNode, as_hyperparams
 from ..progress_bar import progressbar
 from ..model import build_model
 from ..dataset import build_dataloaders
-from ..metrics import build_metrics
 from ..optim import build_optim
 from ..sched import build_sched
 from ..augmentations import build_augmentations
@@ -29,7 +29,6 @@ class Trainer(Action):
         self.train_dl, self.valid_dl = self.build_loaders(config)
         self.test_dl = None
         self.should_test = False
-        self.metrics = build_metrics(config)
         self.opt_t, self.opt_kws = build_optim(config)
         self.transform = build_augmentations(config)
 
@@ -146,6 +145,11 @@ class Trainer(Action):
 
         valid_or_test = 'test' if is_test else 'valid'
 
+        coco_images = dict()
+        coco_categories = [dict(id=i, name=f'cat{i}', supercategory=None) for i in range(1, 11)]
+        coco_gt_anns = []
+        coco_dt_anns = []
+
         with torch.no_grad():
             self.model.train()
             for batch in dataloader:
@@ -164,7 +168,6 @@ class Trainer(Action):
                 else:
                     self.total_valid_loss += loss.item()
 
-            self.metrics.batch_initialise()
             self.model.eval()
             done_vis = False
             for batch in dataloader:
@@ -185,12 +188,23 @@ class Trainer(Action):
                     )
                     done_vis = True
 
-                for o, t in zip(out, tgt):
-                    self.metrics.batch_update(o, t)
+                # Add GT, DT to coco datasets
+                update_coco_datasets_from_batch(coco_images, coco_gt_anns, coco_dt_anns, tgt, out)
 
-            for key, value in self.metrics.batch_finalise().items():
-                assert isinstance(value, float)
-                self.store.add_metric_value(self.exp_id, f'metrics.{valid_or_test}.{key}', self.i, value)
+        coco_images = list(coco_images.values())
+        for i, ann in enumerate(coco_gt_anns):
+            ann['id'] = i+1
+        for i, ann in enumerate(coco_dt_anns):
+            ann['id'] = i+1
+        coco_data_gt = dict(images=coco_images, categories=coco_categories, annotations=coco_gt_anns)
+        coco_data_dt = dict(images=coco_images, categories=coco_categories, annotations=coco_dt_anns)
+
+        coco_metrics = coco_eval_datasets(coco_data_gt, coco_data_dt)
+        for k, v in coco_metrics.items():
+            print(k, v)
+            self.store.add_metric_value(
+                self.exp_id, f'{valid_or_test}.{k}', self.i, v
+            )
 
         self.store.add_loss_value(
             self.exp_id, valid_or_test, self.i,

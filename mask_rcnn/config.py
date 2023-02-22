@@ -84,13 +84,6 @@ def get_config() -> CfgNode:
     cfg.training.device = 'cuda:0' if torch.cuda.is_available() else 'cpu'
     cfg.training.batch_size = 10
     cfg.training.shuffle_every_epoch = True
-    cfg.training.metrics = [
-        # 'm.CosineSimilarity()',
-        # 'm.RMSE()',
-        # 'm.PearsonCorrcoef()',
-        # 'm.R2Score()',
-        # 'm.SpearmanCorrcoef()'
-    ]
 
     cfg.training.opt = CfgNode()
     cfg.training.opt.kind = 'Adam'  # ('Adam', 'SGD')

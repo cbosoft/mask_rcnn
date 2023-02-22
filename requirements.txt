@@ -16,3 +16,4 @@ git+https://github.com/cbosoft/email_notifier
 argparse
 imutils
 scipy
+pycocotools
