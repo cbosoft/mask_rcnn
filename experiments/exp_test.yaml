@@ -1,4 +1,4 @@
-action: xval
+action: train
 data:
   pattern:
     - "data/MISC_DEV_TEST_DATA.json"
@@ -7,11 +7,16 @@ model:
   rpn_anchor_generator:
     aspect_ratios: [0.25, 0.5, 1.0, 2.0, 4.0]
   roi_pooler:
-    featmaps: ['0']
+    featmaps: ['0', '1', '2']
   mask_roi_pooler:
     featmaps: ['0']
+  backbone:
+    kind: resnet
+    resnet:
+      n: 34
+    trainable_layers: 3
 training:
-  n_epochs: 20
+  n_epochs: 10
   visualise_every: 1
   batch_size: 4
   sched:
@@ -19,8 +24,3 @@ training:
   opt:
     adam:
       lr: 1e-4
-  metrics:
-    - "RMSE"
-    - "IoU"
-    - "BinaryClassificationMetrics"
-    - "mAP"

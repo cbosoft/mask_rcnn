@@ -4,16 +4,15 @@ from traceback import format_exception
 
 import torch
 import numpy as np
-import cv2
 from torchinfo import summary
 from mldb import Database
 
-from ..classes import bgr_colour_for_class
+from ..coco_evaluation import coco_eval_datasets, update_coco_datasets_from_batch
+from ..visualisation import visualise_valid_batch
 from ..config import CfgNode, as_hyperparams
 from ..progress_bar import progressbar
 from ..model import build_model
 from ..dataset import build_dataloaders
-from ..metrics import build_metrics
 from ..optim import build_optim
 from ..sched import build_sched
 from ..augmentations import build_augmentations
@@ -30,7 +29,6 @@ class Trainer(Action):
         self.train_dl, self.valid_dl = self.build_loaders(config)
         self.test_dl = None
         self.should_test = False
-        self.metrics = build_metrics(config)
         self.opt_t, self.opt_kws = build_optim(config)
         self.transform = build_augmentations(config)
 
@@ -56,7 +54,7 @@ class Trainer(Action):
         self.bar = self.last_checkpoint = None
 
         self.store = None
-        self.base_exp_id = datetime.now().strftime(f'%Y%m%d_%H%M%S_MaskRCNN')
+        self.base_exp_id = datetime.now().strftime(f'%Y-%m-%d_%H-%M-%S_MaskRCNN')
 
         self.hyperparams = as_hyperparams(config)
 
@@ -99,20 +97,6 @@ class Trainer(Action):
     def build_loaders(self, config):
         _ = self
         return build_dataloaders(config)
-
-    def store_hyperparams(self):
-        self.store: Database
-        for k, v in self.hyperparams.items():
-            self.store.add_hyperparam(self.exp_id, k, v)
-
-        self.store.add_hyperparam(self.exp_id, 'sched/kind', self.sched_t.__name__)
-        for k, v in self.sched_kws.items():
-            self.store.add_hyperparam(self.exp_id, f'sched/{k}', v)
-
-        self.store.add_hyperparam(self.exp_id, 'opt/kind', self.opt_t.__name__)
-        for k, v in self.opt_kws.items():
-            self.store.add_hyperparam(self.exp_id, f'opt/{k}', v)
-
 
     @property
     def should_checkpoint(self) -> bool:
@@ -157,50 +141,14 @@ class Trainer(Action):
 
         self.store.add_loss_value(self.exp_id, 'train', self.i, self.total_train_loss / len(self.train_dl))
 
-    def visualise_valid_batch(self, images, targets, outputs):
-        if self.should_show_visualisations:
-            from matplotlib import pyplot as plt
-            fig, axes = plt.subplots(ncols=len(images), squeeze=False)
-            axes = axes.flatten()
-            list(map(lambda ax: ax.axis('off'), axes))
-        for i, (image, target, output) in enumerate(zip(images, targets, outputs)):
-            image = (image.permute(1, 2, 0) * 255.).cpu().numpy().astype('uint8').copy()
-
-            # draw prediction
-            omasks, oscores, olabels = output['masks'], output['scores'], output['labels']
-            msl = list(zip(*filter(lambda mbs: mbs[1] > 0.1, zip(omasks, oscores, olabels))))
-            if msl:
-                omasks, oscores, olabels = msl
-            else:
-                omasks, oscores, olabels = [], [], []
-
-            for score, mask, lbl in zip(oscores, omasks, olabels):
-                mask = (mask[0].cpu().numpy() > 0.5).astype(np.uint8)
-                # overlay_mask_with_opacity(image, mask, (255, 0, 0), 0.5)
-                contours = cv2.findContours(mask, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)[0]
-                colour = bgr_colour_for_class(lbl)
-                cv2.drawContours(image, contours, -1, colour, -1)
-
-            # draw ground truth
-            for mask, lbl in zip(target['masks'], target['labels']):
-                mask = mask.cpu().numpy()
-                contours = cv2.findContours(mask, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)[0]
-                colour = bgr_colour_for_class(int(lbl))
-                cv2.drawContours(image, contours, -1, (0, 0, 0), 2)
-                cv2.drawContours(image, contours, -1, colour, 1)
-
-            cv2.imwrite(f'{self.output_dir}/seg_{i}_epoch={self.i}.jpg', image)
-
-            if self.should_show_visualisations:
-                axes[i].imshow(image[..., ::-1])
-        if self.should_show_visualisations:
-            plt.tight_layout()
-            plt.show()
-            plt.close()
-
     def validate_or_test(self, dataloader, is_test: bool):
 
         valid_or_test = 'test' if is_test else 'valid'
+
+        coco_images = dict()
+        coco_categories = [dict(id=i, name=f'cat{i}', supercategory=None) for i in range(1, 11)]
+        coco_gt_anns = []
+        coco_dt_anns = []
 
         with torch.no_grad():
             self.model.train()
@@ -220,7 +168,6 @@ class Trainer(Action):
                 else:
                     self.total_valid_loss += loss.item()
 
-            self.metrics.batch_initialise()
             self.model.eval()
             done_vis = False
             for batch in dataloader:
@@ -233,15 +180,31 @@ class Trainer(Action):
                 out = self.model(inp)
 
                 if not done_vis and ((self.i % self.visualise_every) == 0):
-                    self.visualise_valid_batch(inp, tgt, out)
+                    visualise_valid_batch(
+                        inp, tgt, out,
+                        self.should_show_visualisations,
+                        output_dir=self.output_dir,
+                        epoch=self.i,
+                    )
                     done_vis = True
 
-                for o, t in zip(out, tgt):
-                    self.metrics.batch_update(o, t)
+                # Add GT, DT to coco datasets
+                update_coco_datasets_from_batch(coco_images, coco_gt_anns, coco_dt_anns, tgt, out)
 
-            for key, value in self.metrics.batch_finalise().items():
-                assert isinstance(value, float)
-                self.store.add_metric_value(self.exp_id, f'metrics.{valid_or_test}.{key}', self.i, value)
+        coco_images = list(coco_images.values())
+        for i, ann in enumerate(coco_gt_anns):
+            ann['id'] = i+1
+        for i, ann in enumerate(coco_dt_anns):
+            ann['id'] = i+1
+        coco_data_gt = dict(images=coco_images, categories=coco_categories, annotations=coco_gt_anns)
+        coco_data_dt = dict(images=coco_images, categories=coco_categories, annotations=coco_dt_anns)
+
+        coco_metrics = coco_eval_datasets(coco_data_gt, coco_data_dt)
+        for k, v in coco_metrics.items():
+            print(k, v)
+            self.store.add_metric_value(
+                self.exp_id, f'{valid_or_test}.{k}', self.i, v
+            )
 
         self.store.add_loss_value(
             self.exp_id, valid_or_test, self.i,
@@ -299,7 +262,6 @@ so that any exceptions can be properly handled, and training status can be logge
             print(f'Connected to database "{self.store}"')
             self.store.set_exp_status(self.exp_id, 'TRAINING')
             self.store.set_config_file(self.exp_id, f'{self.output_dir}/config.yaml')
-            self.store_hyperparams()
             self.do_validation()
             self.bar = progressbar(range(self.n_epochs), unit='epoch')
             for _i in self.bar:
@@ -309,7 +271,8 @@ so that any exceptions can be properly handled, and training status can be logge
                 self.do_train(opt, scheduler)
 
                 self.total_valid_loss = 0.0
-                self.do_validation()
+                if self.valid_dl is not None:
+                    self.do_validation()
 
                 if self.should_checkpoint:
                     self.checkpoint()

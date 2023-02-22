@@ -1,5 +1,6 @@
 from time import process_time
 
+import git
 import numpy as np
 import torch
 from matplotlib import pyplot as plt
@@ -8,10 +9,13 @@ from mask_rcnn.config import get_config, CfgNode
 from mask_rcnn.model import build_model
 
 
-def test_cfg(cfg: CfgNode, s: int, n=3):
+def test_cfg(cfg: CfgNode, device: str, s: int, n=3):
     inp = torch.zeros((3, s, s))
-    model = build_model(cfg)
+    model = build_model(cfg, quiet=True)
     model.eval()
+
+    model = model.to(device)
+    inp = inp.to(device)
 
     times = []
 
@@ -27,21 +31,32 @@ def test_cfg(cfg: CfgNode, s: int, n=3):
 
 if __name__ == '__main__':
     cfg = get_config()
+
+    repo = git.Repo('.')
+    version_name = repo.commit().hexsha[:6] + ('+' if repo.is_dirty() else '')
+    print(version_name)
     
     ns = []
     ss = []
     ts = []
-    for s in range(100, 1000, 300):
-        for n in [18, 34, 50, 101, 152]:
-            cfg.model.backbone.resnet.n = n
+    gs = []
+    for g in [0, 1]:
+        for s in [500, 1000, 2000, 4000]:
+            for n in [18, 34, 50, 101, 152]:
+                cfg.model.backbone.resnet.n = n
 
-            t = test_cfg(cfg, s)
+                device = 'cuda' if g else 'cpu'
 
-            ns.append(n)
-            ss.append(s)
-            ts.append(t)
+                t = test_cfg(cfg, device, s)
 
-            print(f'mean inference time {t}s')
+                ns.append(n)
+                ss.append(s)
+                ts.append(t)
+
+                with open('benchmark_results.csv', 'a') as f:
+                    f.write(f'{version_name},{n},{s},{device},{t}\n')
+
+                print(f'mean inference time {t}s')
     
     plt.figure()
     plt.plot(ns, ts, 'o')
