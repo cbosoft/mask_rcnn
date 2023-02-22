@@ -99,20 +99,6 @@ class Trainer(Action):
         _ = self
         return build_dataloaders(config)
 
-    def store_hyperparams(self):
-        self.store: Database
-        for k, v in self.hyperparams.items():
-            self.store.add_hyperparam(self.exp_id, k, v)
-
-        self.store.add_hyperparam(self.exp_id, 'sched/kind', self.sched_t.__name__)
-        for k, v in self.sched_kws.items():
-            self.store.add_hyperparam(self.exp_id, f'sched/{k}', v)
-
-        self.store.add_hyperparam(self.exp_id, 'opt/kind', self.opt_t.__name__)
-        for k, v in self.opt_kws.items():
-            self.store.add_hyperparam(self.exp_id, f'opt/{k}', v)
-
-
     @property
     def should_checkpoint(self) -> bool:
         return (self.i % self.checkpoint_every) == 0
@@ -262,7 +248,6 @@ so that any exceptions can be properly handled, and training status can be logge
             print(f'Connected to database "{self.store}"')
             self.store.set_exp_status(self.exp_id, 'TRAINING')
             self.store.set_config_file(self.exp_id, f'{self.output_dir}/config.yaml')
-            self.store_hyperparams()
             self.do_validation()
             self.bar = progressbar(range(self.n_epochs), unit='epoch')
             for _i in self.bar:
