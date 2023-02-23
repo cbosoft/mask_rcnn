@@ -328,10 +328,12 @@ so that any exceptions can be properly handled, and training status can be logge
 
     def update_progress(self):
         train_loss = self.total_train_loss / len(self.train_dl)
-        valid_loss = self.total_valid_loss / len(self.valid_dl)
-        divergence = valid_loss / train_loss
-        # desc = f'{self.prefix}t:{self.total_train_loss / len(self.train_dl):.2e}|v:{self.total_valid_loss / len(self.valid_dl):.2e}|'
-        desc = f'v/t:{divergence:.2f}'
+        if self.valid_dl is not None:
+            valid_loss = self.total_valid_loss / len(self.valid_dl)
+            divergence = valid_loss / train_loss
+            desc = f'v/t:{divergence:.2f}'
+        else:
+            desc = f't:{train_loss:.f}'
         for k, v in self.displayed_metrics.items():
             desc += f'|{k}:{v:.2f}'
         self.bar.set_description(desc, False)
