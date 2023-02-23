@@ -99,25 +99,29 @@ class COCODataset(_TorchDataset):
             with open(fn) as f:
                 coco_dataset = json.load(f)
 
-            images_by_id = {}
+            images_by_orig_id = {}
 
             for im_data in progressbar(coco_dataset['images'], unit='images', desc='1/2'):
-                im_id = im_data['id']
+                # when combining dataset json files, IDs are not unique and need to be recalculated.
+                orig_im_id = im_data['id']
+                im_data['id'] = im_id = len(images) + len(images_by_orig_id)
                 im_data['file_name'] = os.path.join(dn, im_data['file_name'])
                 im_data['file_name'] = im_data['file_name'].replace('\\', '/')
-                images_by_id[im_id] = COCO_Image(**im_data)
+                images_by_orig_id[orig_im_id] = COCO_Image(**im_data)
 
             for ann_data in progressbar(coco_dataset['annotations'], unit='annotations', desc='2/2'):
-                im_id = ann_data['image_id']
-                images_by_id[im_id].annotations.append(COCO_Annotation(**ann_data))
+                # update annotation to refer to recalculated image IDs
+                orig_im_id = ann_data['image_id']
+                ann_data['image_id'] = images_by_orig_id[orig_im_id].id
+                images_by_orig_id[orig_im_id].annotations.append(COCO_Annotation(**ann_data))
             
-            orig_n_images = len(images_by_id)
+            orig_n_images = len(images_by_orig_id)
             if filter_images == 'none':
-                images_filtered = list(images_by_id)
+                images_filtered = list(images_by_orig_id.values())
             elif filter_images == 'empty':
-                images_filtered = [im for im in images_by_id.values() if im.annotations]
+                images_filtered = [im for im in images_by_orig_id.values() if im.annotations]
             elif filter_images == 'annot':
-                images_filtered = [im for im in images_by_id.values() if not im.annotations]
+                images_filtered = [im for im in images_by_orig_id.values() if not im.annotations]
             else:
                 raise ValueError(f'Didn\'t understand value for $filter_images ({filter_images}), should be one of "none", "empty", or "annot"')
             n_images = len(images_filtered)
