@@ -272,7 +272,7 @@ so that any exceptions can be properly handled, and training status can be logge
             self.store.set_exp_status(self.exp_id, 'TRAINING')
             self.store.set_config_file(self.exp_id, f'{self.output_dir}/config.yaml')
             self.do_validation()
-            self.bar = progressbar(range(self.n_epochs), unit='epoch')
+            self.bar = progressbar(range(self.n_epochs), unit='epoch', ncols=80)
             for _i in self.bar:
                 self.i = _i + 1
 
