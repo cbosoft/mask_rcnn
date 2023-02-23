@@ -333,7 +333,7 @@ so that any exceptions can be properly handled, and training status can be logge
             divergence = valid_loss / train_loss
             desc = f'v/t:{divergence:.2f}'
         else:
-            desc = f't:{train_loss:.f}'
+            desc = f't:{train_loss:.2f}'
         for k, v in self.displayed_metrics.items():
             desc += f'|{k}:{v:.2f}'
         self.bar.set_description(desc, False)
