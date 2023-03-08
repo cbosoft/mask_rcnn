@@ -35,7 +35,7 @@ class CrossValidator(Trainer):
         indices = np.arange(n)
         np.random.shuffle(indices)
 
-        dataloader_kws = dict(batch_size=self.batch_size, collate_fn=collate_fn, shuffle=True, drop_last=True)
+        dataloader_kws = dict(batch_size=self.batch_size, collate_fn=collate_fn, drop_last=True)
         if self.frac_test > 0.0:
             test_pivot = int(n*self.frac_test)
             test_indices = indices[:test_pivot]
@@ -63,8 +63,8 @@ class CrossValidator(Trainer):
             train_set = Subset(self.master_dataset, train_indices)
             valid_set = Subset(self.master_dataset, valid_indices)
 
-            self.train_dl = DataLoader(train_set, **dataloader_kws)
-            self.valid_dl = DataLoader(valid_set, **dataloader_kws)
+            self.train_dl = DataLoader(train_set, shuffle=True, **dataloader_kws)
+            self.valid_dl = DataLoader(valid_set, shuffle=False, **dataloader_kws)
 
             print('Reset to original model state')
             self.model.load_state_dict(torch.load(f'{self.output_dir}/original_state.pth'))
