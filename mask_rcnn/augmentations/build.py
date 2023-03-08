@@ -2,10 +2,12 @@ from ..config import CfgNode
 from .aug_base import Augmentation
 from .composed import ComposedAugmentations
 from .random_flip import RandomFlip
+from .colorjitter import ColorJitter
 
 
 AUGS = dict(
-    RandomFlip=RandomFlip
+    RandomFlip=RandomFlip,
+    ColorJitter=ColorJitter,
 )
 
 
