@@ -74,9 +74,8 @@ class COCO_Image:
 
 class COCODataset(_TorchDataset):
 
-    def __init__(self, images: List[COCO_Image], max_n_images: int, transforms=None):
+    def __init__(self, images: List[COCO_Image], max_n_images: int):
         self.images = images if max_n_images is not None else images[:max_n_images]
-        self.transforms = transforms
 
     @classmethod
     def from_config(cls, cfg: CfgNode, filter_images='empty'):
@@ -141,7 +140,5 @@ class COCODataset(_TorchDataset):
         img_data = self.images[i]
         tgt = img_data.get_target_dict()
         img = img_data.image
-        if self.transforms:
-            img = self.transforms(img)
         img = (img/255.).to(torch.float)
         return dict(image=img, target=tgt, source=img_data.file_name)
