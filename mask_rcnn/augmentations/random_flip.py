@@ -1,5 +1,5 @@
 import random
-from typing import Tuple
+from typing import Tuple, List
 
 import torch
 
@@ -18,7 +18,7 @@ class RandomFlip(Augmentation):
         self.rots = rots
 
     @staticmethod
-    def hflip(images: torch.Tensor, targets: dict):
+    def hflip(images: List[torch.Tensor], targets: List[dict]):
         for image, target in zip(images, targets):
             image[:] = torch.flip(image, [2])
             w = image.shape[2]
@@ -30,7 +30,7 @@ class RandomFlip(Augmentation):
                 mask[:] = torch.flip(mask, [1])
 
     @staticmethod
-    def vflip(images: torch.Tensor, targets: dict):
+    def vflip(images: List[torch.Tensor], targets: List[dict]):
         for image, target in zip(images, targets):
             h = image.shape[1]
             image[:] = torch.flip(image, [1])
@@ -42,12 +42,12 @@ class RandomFlip(Augmentation):
                 mask[:] = torch.flip(mask, [0])
 
 
-    def apply(self, image: torch.Tensor, target: dict) -> Tuple[torch.Tensor, dict]:
+    def apply(self, images: List[torch.Tensor], targets: List[dict]) -> Tuple[List[torch.Tensor], List[dict]]:
         if self.hflips and random.randint(0, 1):
-            self.hflip(image, target)
+            self.hflip(images, targets)
 
         if self.vflips and random.randint(0, 1):
-            self.vflip(image, target)
+            self.vflip(images, targets)
 
-        return image, target
+        return images, targets
 

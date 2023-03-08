@@ -1,12 +1,12 @@
-from typing import Tuple
+from typing import Tuple, List
 
 import torch
 
 
 class Augmentation:
 
-    def __call__(self, image: torch.Tensor, target: dict) -> Tuple[torch.Tensor, dict]:
-        return self.apply(image, target)
+    def __call__(self, images: List[torch.Tensor], targets: List[dict]) -> Tuple[List[torch.Tensor], List[dict]]:
+        return self.apply(images, targets)
 
-    def apply(self, image: torch.Tensor, target: dict) -> Tuple[torch.Tensor, dict]:
+    def apply(self, images: List[torch.Tensor], targets: List[dict]) -> Tuple[List[torch.Tensor], List[dict]]:
         raise NotImplementedError
