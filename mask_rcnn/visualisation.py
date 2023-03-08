@@ -5,7 +5,7 @@ import numpy as np
 from .classes import bgr_colour_for_class
 
 
-def visualise_valid_batch(images, targets, outputs, should_show_visualisations: bool, output_dir: str, epoch: int):
+def visualise_valid_batch(images, targets, outputs, should_show_visualisations: bool, output_dir: str, epoch: int, prefix: str):
 
     if should_show_visualisations:
         fig, axes = plt.subplots(ncols=len(images), squeeze=False)
@@ -38,7 +38,7 @@ def visualise_valid_batch(images, targets, outputs, should_show_visualisations: 
             cv2.drawContours(image, contours, -1, (0, 0, 0), 2)
             cv2.drawContours(image, contours, -1, colour, 1)
 
-        cv2.imwrite(f'{output_dir}/seg_{i}_epoch={epoch}.jpg', image)
+        cv2.imwrite(f'{output_dir}/{prefix}seg_{i}_epoch={epoch}.jpg', image)
 
         if should_show_visualisations:
             axes[i].imshow(image[..., ::-1])

@@ -188,6 +188,7 @@ class Trainer(Action):
                         self.should_show_visualisations,
                         output_dir=self.output_dir,
                         epoch=self.i,
+                        prefix=self.prefix,
                     )
                     done_vis = True
 
