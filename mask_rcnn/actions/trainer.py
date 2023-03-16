@@ -140,7 +140,14 @@ class Trainer(Action):
             opt.step()
             scheduler.step()
 
+        try:
+            lr = scheduler.get_last_lr()[0]
+        except AttributeError:
+            lr = float('nan')
+
         self.store.add_loss_value(self.exp_id, 'train', self.i, self.total_train_loss / len(self.train_dl))
+        self.store: Database
+        self.store.add_lr_value(self.exp_id, self.i, lr)
 
     def validate_or_test(self, dataloader, is_test: bool):
 
