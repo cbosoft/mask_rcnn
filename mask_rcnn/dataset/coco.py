@@ -77,6 +77,13 @@ class COCODataset(_TorchDataset):
     def __init__(self, images: List[COCO_Image], max_n_images: int):
         self.images = images if max_n_images is not None else images[:max_n_images]
 
+    @staticmethod
+    def get_dataset_files(cfg):
+        fns = []
+        for pattern in cfg.data.pattern:
+            fns.extend(glob(pattern))
+        return fns
+
     @classmethod
     def from_config(cls, cfg: CfgNode, filter_images='empty'):
         """
@@ -87,9 +94,7 @@ class COCODataset(_TorchDataset):
         :return:
         """
         images = []
-        fns = []
-        for pattern in cfg.data.pattern:
-            fns.extend(glob(pattern))
+        fns = cls.get_dataset_files(cfg)
         
         assert fns, f'No datasets found! Double check cfg.data.pattern: {cfg.data.pattern}'
 

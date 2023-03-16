@@ -19,6 +19,7 @@ def get_config() -> CfgNode:
 
     # pattern to use to create the output directory, where training results are stored.
     cfg.output_dir = 'training_results/%Y-%m-%d_%H-%M-%S'
+    cfg.group = 'Mask R-CNN exp;data={data};arch={arch};tl={tl};n={n};e={e};sched={sched};opt={opt};augs={augs};'
 
     ####################################################################################################################
     cfg.data = CfgNode()

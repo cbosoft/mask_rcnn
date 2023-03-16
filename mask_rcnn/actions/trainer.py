@@ -12,7 +12,7 @@ from ..visualisation import visualise_valid_batch
 from ..config import CfgNode, as_hyperparams
 from ..progress_bar import progressbar
 from ..model import build_model
-from ..dataset import build_dataloaders
+from ..dataset import build_dataloaders, COCODataset
 from ..optim import build_optim
 from ..sched import build_sched
 from ..augmentations import build_augmentations
@@ -39,9 +39,25 @@ class Trainer(Action):
             len(self.train_dl) if self.train_dl is not None else 100
         )
 
-
         with open(f'{config.output_dir}/config.yaml', 'w') as f:
             f.write(config.dump())
+
+        ds_fns = COCODataset.get_dataset_files(cfg=config)
+        ds_name = '+'.join(sorted(set([
+            os.path.splitext(os.path.basename(fn))[0]
+            for fn in ds_fns
+        ])))
+
+        self.group = config.group.format(
+            data=ds_name,
+            arch=config.model.backbone.kind,
+            tl=config.model.backbone.trainable_layers,
+            n=config.model.backbone.resnet.n,
+            e=config.training.n_epochs,
+            sched=config.training.sched.kind,
+            opt=config.training.opt.kind,
+            augs=str(config.data.augmentations).replace('=', ':')
+        )
 
         self.n_epochs = config.training.n_epochs
         self.device = torch.device(config.training.device)
@@ -279,6 +295,8 @@ so that any exceptions can be properly handled, and training status can be logge
             print(f'Connected to database "{self.store}"')
             self.store.set_exp_status(self.exp_id, 'TRAINING')
             self.store.set_config_file(self.exp_id, f'{self.output_dir}/config.yaml')
+            self.store: Database
+            self.store.add_to_group(self.exp_id, self.group)
             self.do_validation()
             self.bar = progressbar(range(self.n_epochs), unit='epoch', ncols=80)
             for _i in self.bar:

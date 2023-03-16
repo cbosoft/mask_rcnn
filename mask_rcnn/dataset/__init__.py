@@ -1,1 +1,1 @@
-from .build import build_dataset, build_dataloaders
+from .build import build_dataset, build_dataloaders, COCODataset
