@@ -2,6 +2,7 @@ from glob import glob
 import json
 from typing import List
 import os
+from copy import deepcopy
 
 import numpy as np
 import cv2
@@ -146,4 +147,6 @@ class COCODataset(_TorchDataset):
         tgt = img_data.get_target_dict()
         img = img_data.image
         img = (img/255.).to(torch.float)
-        return dict(image=img, target=tgt, source=img_data.file_name)
+        # Images are read in fresh every time, but targets are kept in-memory
+        # Return copy of targets so transforms can be done in-place.
+        return dict(image=img, target=deepcopy(tgt), source=img_data.file_name)
