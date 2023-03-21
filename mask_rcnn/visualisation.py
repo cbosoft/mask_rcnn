@@ -1,4 +1,5 @@
 from matplotlib import pyplot as plt
+from matplotlib.patches import Polygon
 import cv2
 import numpy as np
 
@@ -7,15 +8,23 @@ from .classes import bgr_colour_for_class
 
 def visualise_valid_batch(images, targets, outputs, should_show_visualisations: bool, output_dir: str, epoch: int, prefix: str):
 
-    if should_show_visualisations:
-        fig, axes = plt.subplots(ncols=len(images), squeeze=False)
-        axes = axes.flatten()
-        list(map(lambda ax: ax.axis('off'), axes))
-
     for i, (image, target, output) in enumerate(zip(images, targets, outputs)):
-        image = (image.permute(1, 2, 0) * 255.).cpu().numpy().astype('uint8').copy()
+        _, axes = plt.subplots(nrows=1, ncols=3, figsize=(3*4, 4))
+        for ax in axes:
+            plt.sca(ax)
+            plt.axis('off')
+
+        # prep image for vis
+        image = (image.permute(1, 2, 0) * 255.).cpu().numpy().astype('uint8')
+
+        plt.sca(axes[0])
+        plt.title('Raw')
+        plt.imshow(image)
 
         # draw prediction
+        plt.sca(axes[2])
+        plt.title('Prediction')
+        plt.imshow(image)
         omasks, oscores, olabels = output['masks'], output['scores'], output['labels']
         msl = list(zip(*filter(lambda mbs: mbs[1] > 0.1, zip(omasks, oscores, olabels))))
         if msl:
@@ -25,25 +34,31 @@ def visualise_valid_batch(images, targets, outputs, should_show_visualisations: 
 
         for score, mask, lbl in zip(oscores, omasks, olabels):
             mask = (mask[0].cpu().numpy() > 0.5).astype(np.uint8)
-            # overlay_mask_with_opacity(image, mask, (255, 0, 0), 0.5)
-            contours = cv2.findContours(mask, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)[0]
+            if np.all(mask == 0): continue
+            contours = cv2.findContours(mask, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)[0][0]
+            x = contours[:, 0, 0]
+            y = contours[:, 0, 1]
+            xy = np.array(list(zip(x, y)))
             colour = bgr_colour_for_class(lbl)
-            cv2.drawContours(image, contours, -1, colour, -1)
+            colour = [v/255. for v in colour[::-1]]
+            axes[2].patches.append(Polygon(xy, alpha=0.5, facecolor=colour))
 
         # draw ground truth
+        plt.sca(axes[1])
+        plt.title('Ground Truth')
+        plt.imshow(image)
         for mask, lbl in zip(target['masks'], target['labels']):
             mask = mask.cpu().numpy()
-            contours = cv2.findContours(mask, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)[0]
-            colour = bgr_colour_for_class(int(lbl))
-            cv2.drawContours(image, contours, -1, (0, 0, 0), 2)
-            cv2.drawContours(image, contours, -1, colour, 1)
+            contours = cv2.findContours(mask, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)[0][0]
+            x = contours[:, 0, 0]
+            y = contours[:, 0, 1]
+            xy = np.array(list(zip(x, y)))
+            colour = bgr_colour_for_class(lbl)
+            colour = [v/255. for v in colour[::-1]]
+            axes[1].patches.append(Polygon(xy, alpha=0.5, facecolor=colour))
 
-        cv2.imwrite(f'{output_dir}/{prefix}seg_{i}_epoch={epoch}.jpg', image)
-
-        if should_show_visualisations:
-            axes[i].imshow(image[..., ::-1])
-
-    if should_show_visualisations:
         plt.tight_layout()
-        plt.show()
+        if should_show_visualisations:
+            plt.show()
+        plt.savefig(f'{output_dir}/{prefix}seg_{i}_epoch={epoch}.jpg')
         plt.close()

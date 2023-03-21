@@ -12,10 +12,11 @@ class RandomFlip(Augmentation):
     randomly flip image horixontally or vertically
     """
 
-    def __init__(self, hflips=True, vflips=True, rots=True):
+    def __init__(self, hflips=True, vflips=True, rots=True, is_demo=False):
         self.hflips = hflips
         self.vflips = vflips
         self.rots = rots
+        self.is_demo = is_demo
 
     @staticmethod
     def hflip(images: List[torch.Tensor], targets: List[dict]):
@@ -43,10 +44,10 @@ class RandomFlip(Augmentation):
 
 
     def apply(self, images: List[torch.Tensor], targets: List[dict]) -> Tuple[List[torch.Tensor], List[dict]]:
-        if self.hflips and random.randint(0, 1):
+        if (self.hflips and random.randint(0, 1)) or self.is_demo:
             self.hflip(images, targets)
 
-        if self.vflips and random.randint(0, 1):
+        if (self.vflips and random.randint(0, 1)) or self.is_demo:
             self.vflip(images, targets)
 
         return images, targets

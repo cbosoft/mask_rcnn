@@ -103,6 +103,31 @@ def update_coco_datasets_from_batch(
             coco_dt_anns.append(annotation)
 
 
+def interpret_coco_data(coco_eval, is_precision=True, iou_threshold=None, area_range='all', max_detections=100, category_id=None):
+    if category_id is None:
+        category_id = slice(0, -1)
+    p = coco_eval.params
+
+    aind = [i for i, aRng in enumerate(p.areaRngLbl) if aRng == area_range]
+    mind = [i for i, mDet in enumerate(p.maxDets) if mDet == max_detections]
+
+    # dimension of precision: [TxRxKxAxM], dimension of recall: [TxKxAxM]
+    data = coco_eval.eval['precision' if is_precision else 'recall']
+    if iou_threshold is not None:
+        t = np.where(iou_threshold == p.iouThrs)[0]
+        data = data[t]
+    data = data[..., category_id, aind, mind]
+
+    mean = np.mean(data[data >= 0])
+    if not np.isfinite(mean):
+        mean = -1.0
+
+    ap_ar = 'AP' if is_precision else 'AR'
+    iou_pfx, iou_sfx = ('', str(int(iou_threshold*100))) if iou_threshold else ('m', '')
+    size_sfx = '' if area_range == 'all' else area_range[0].upper()
+    cat_sfx = f'_c{category_id}' if isinstance(category_id, int) else ''
+    return f'{iou_pfx}{ap_ar}{iou_sfx}{size_sfx}{cat_sfx}', mean
+
 
 def coco_eval_datasets(gt, dt):
     coco_gt = COCO()
@@ -116,25 +141,25 @@ def coco_eval_datasets(gt, dt):
     coco_eval = COCOeval(coco_gt, coco_dt)
     coco_eval.evaluate()
 
-    p = Params()
-    p.areaRng = [[0, 1e10]]
-    p.areaRngLbl = ['all']
-    p.maxDets = [100]
-    p.imgIds = sorted(coco_gt.getImgIds())
-    p.catIds = list(range(1, 11))
-
-    coco_eval.accumulate(p)
-
-    data = dict()
-    APs = []
-    for i, iou_thresh in enumerate(p.iouThrs):
-        k = f'AP{int(iou_thresh*100.)}'
-        v = coco_eval.eval['precision'][i, :, :, 0, 0]
-        v = v[v >= 0.0]
-        v = np.mean(v)
-        if not np.isfinite(v):
-            v = 0.0
-        data[k] = v
-        APs.append(v)
-    data['mAP'] = np.mean(APs)
-    return data
+    coco_eval.accumulate()
+    results = {}
+    results.update([
+        interpret_coco_data(coco_eval, True, None, 'all', 100, None),
+        interpret_coco_data(coco_eval, True, 0.5, 'all', 100, None),
+        interpret_coco_data(coco_eval, True, None, 'small', 100, None),
+        interpret_coco_data(coco_eval, True, None, 'medium', 100, None),
+        interpret_coco_data(coco_eval, True, None, 'large', 100, None),
+        *[
+            interpret_coco_data(coco_eval, True, None, 'all', 100, i)
+            for i in range(len(coco_eval.params.catIds))
+        ],
+        interpret_coco_data(coco_eval, False, None, 'all', 100, None),
+        interpret_coco_data(coco_eval, False, None, 'small', 100, None),
+        interpret_coco_data(coco_eval, False, None, 'medium', 100, None),
+        interpret_coco_data(coco_eval, False, None, 'large', 100, None),
+        *[
+            interpret_coco_data(coco_eval, False, None, 'all', 100, i)
+            for i in range(len(coco_eval.params.catIds))
+        ],
+    ])
+    return results
