@@ -17,6 +17,7 @@ from ..optim import build_optim
 from ..sched import build_sched
 from ..augmentations import build_augmentations
 from .action_base import Action
+from ..balance_plot import balance_plot
 
 
 class Trainer(Action):
@@ -288,6 +289,7 @@ so that any exceptions can be properly handled, and training status can be logge
 
         self.save_dataset_contents(self.train_dl, 'train')
         self.save_dataset_contents(self.valid_dl, 'valid')
+        balance_plot('train', self.train_dl, 'valid', self.valid_dl, filename=f'{self.output_dir}/fig_dataset_balance.pdf')
 
         opt = self.opt_t(self.model.parameters(), **self.opt_kws)
         scheduler = self.sched_t(opt, **self.sched_kws)
