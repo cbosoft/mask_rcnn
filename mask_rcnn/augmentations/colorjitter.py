@@ -8,7 +8,7 @@ from .aug_base import Augmentation
 
 class ColorJitter(Augmentation):
 
-    def __init__(self, brightness=0.2, contrast=0.2, saturation=0.0, hue=0.0):
+    def __init__(self, brightness=0.5, contrast=0.5, saturation=0.0, hue=0.0):
         self._jitter = TV_ColorJitter(brightness=brightness, contrast=contrast, saturation=saturation, hue=hue)
 
     def apply(self, images: List[torch.Tensor], targets: List[dict]) -> Tuple[List[torch.Tensor], List[dict]]:
