@@ -106,6 +106,10 @@ def update_coco_datasets_from_batch(
 def interpret_coco_data(coco_eval, is_precision=True, iou_threshold=None, area_range='all', max_detections=100, category_id=None):
     if category_id is None:
         category_id = slice(0, -1)
+    else:
+        assert isinstance(category_id, int)
+        assert category_id > 0
+        category_id -= 1
     p = coco_eval.params
 
     aind = [i for i, aRng in enumerate(p.areaRngLbl) if aRng == area_range]
@@ -125,7 +129,7 @@ def interpret_coco_data(coco_eval, is_precision=True, iou_threshold=None, area_r
     ap_ar = 'AP' if is_precision else 'AR'
     iou_pfx, iou_sfx = ('', str(int(iou_threshold*100))) if iou_threshold else ('m', '')
     size_sfx = '' if area_range == 'all' else area_range[0].upper()
-    cat_sfx = f'_c{category_id}' if isinstance(category_id, int) else ''
+    cat_sfx = f'_c{category_id+1}' if isinstance(category_id, int) else ''
     return f'{iou_pfx}{ap_ar}{iou_sfx}{size_sfx}{cat_sfx}', mean
 
 
@@ -150,16 +154,16 @@ def coco_eval_datasets(gt, dt):
         interpret_coco_data(coco_eval, True, None, 'medium', 100, None),
         interpret_coco_data(coco_eval, True, None, 'large', 100, None),
         *[
-            interpret_coco_data(coco_eval, True, None, 'all', 100, i)
-            for i in range(len(coco_eval.params.catIds))
+            interpret_coco_data(coco_eval, True, None, 'all', 100, cat)
+            for cat in coco_eval.params.catIds
         ],
         interpret_coco_data(coco_eval, False, None, 'all', 100, None),
         interpret_coco_data(coco_eval, False, None, 'small', 100, None),
         interpret_coco_data(coco_eval, False, None, 'medium', 100, None),
         interpret_coco_data(coco_eval, False, None, 'large', 100, None),
         *[
-            interpret_coco_data(coco_eval, False, None, 'all', 100, i)
-            for i in range(len(coco_eval.params.catIds))
+            interpret_coco_data(coco_eval, False, None, 'all', 100, cat)
+            for cat in coco_eval.params.catIds
         ],
     ])
     return results
