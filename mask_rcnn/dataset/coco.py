@@ -76,7 +76,11 @@ class COCO_Image:
 class COCODataset(_TorchDataset):
 
     def __init__(self, images: List[COCO_Image], max_n_images: int):
-        self.images = images if max_n_images is not None else images[:max_n_images]
+        if max_n_images > 0:
+            self.images = images[:max_n_images]
+            print(f'enforce maximum number images {len(self.images)}')
+        else:
+            self.images = images
 
     @staticmethod
     def get_dataset_files(cfg):
