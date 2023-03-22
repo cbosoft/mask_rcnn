@@ -206,7 +206,7 @@ class Trainer(Action):
                 tgt = self.prep_target(batch['target'])
                 out = self.model(inp)
 
-                if not done_vis and ((self.i % self.visualise_every) == 0):
+                if not done_vis and ((self.i % self.visualise_every) == 0) and not is_test:
                     visualise_valid_batch(
                         inp, tgt, out,
                         self.should_show_visualisations,
