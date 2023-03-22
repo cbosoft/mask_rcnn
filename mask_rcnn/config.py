@@ -48,7 +48,7 @@ def get_config() -> CfgNode:
     # Otherwise, must be a tuple of (exp_id, epoch) used to find a model state file in the database.
     cfg.model.state = None
 
-    cfg.model.n_classes = 1
+    cfg.model.n_classes = 11
     cfg.model.backbone = CfgNode()
     cfg.model.backbone.kind = 'resnet'
     cfg.model.backbone.pretrained = True
