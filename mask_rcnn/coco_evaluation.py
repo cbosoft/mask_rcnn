@@ -107,7 +107,7 @@ def interpret_coco_data(coco_eval, is_precision=True, iou_threshold=None, area_r
     if category_id is None:
         category_id = slice(0, -1)
     else:
-        assert isinstance(category_id, int)
+        category_id = int(category_id)
         assert category_id > 0
         category_id -= 1
     p = coco_eval.params
