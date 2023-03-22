@@ -33,7 +33,7 @@ if __name__ == '__main__':
             except Exception as e:
                 raise ExperimentFailed(f'Error running experiment "{expt}"') from e
             em.send_message(
-                f'CLD2QC experiment "{expt}" complete',
+                f'Mask R-CNN experiment "{expt}" complete',
                 em.subject.format(kind='Update'),
                 is_html=True,
                 **em.config
