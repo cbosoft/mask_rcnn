@@ -6,6 +6,9 @@ def balance_plot(*labels_and_dataloaders, filename: str):
     dataloader_labels = labels_and_dataloaders[::2]
     assert all(isinstance(lbl, str) for lbl in dataloader_labels)
     dataloaders = labels_and_dataloaders[1::2]
+    if any(dl is None for dl in dataloaders):
+        return
+
     plt.figure()
     labels = list(range(1, 11))
     off = len(dataloaders)
