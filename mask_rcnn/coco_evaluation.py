@@ -129,7 +129,7 @@ def interpret_coco_data(coco_eval, is_precision=True, iou_threshold=None, area_r
     ap_ar = 'AP' if is_precision else 'AR'
     iou_pfx, iou_sfx = ('', str(int(iou_threshold*100))) if iou_threshold else ('m', '')
     size_sfx = '' if area_range == 'all' else area_range[0].upper()
-    cat_sfx = f'_c{category_id+1}' if isinstance(category_id, int) else ''
+    cat_sfx = f'_c{category_id+1:02}' if isinstance(category_id, int) else ''
     return f'{iou_pfx}{ap_ar}{iou_sfx}{size_sfx}{cat_sfx}', mean
 
 
