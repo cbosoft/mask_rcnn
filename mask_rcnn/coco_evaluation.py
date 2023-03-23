@@ -166,4 +166,29 @@ def coco_eval_datasets(gt, dt):
             for cat in coco_eval.params.catIds
         ],
     ])
+
+    # Strip categories from all predictions and truth (well, set to cat1)
+    dt['categories'] = gt['categories'] = [cat for cat in gt['categories'] if cat['id'] == 1]
+    for ann in gt['annotations']:
+        ann['category_id'] = 1
+    for ann in dt['annotations']:
+        ann['category_id'] = 1
+
+    coco_gt = COCO()
+    coco_gt.dataset = gt
+    coco_gt.createIndex()
+
+    coco_dt = COCO()
+    coco_dt.dataset = dt
+    coco_dt.createIndex()
+
+    coco_eval = COCOeval(coco_gt, coco_dt)
+    coco_eval.evaluate()
+
+    coco_eval.accumulate()
+    results.update([
+        ('mAP-ca', interpret_coco_data(coco_eval, True, None, 'all', 100, None)[1]),
+        ('AP50-ca', interpret_coco_data(coco_eval, True, 0.5, 'all', 100, None)[1]),
+        ('mAR-ca', interpret_coco_data(coco_eval, False, None, 'all', 100, None)[1]),
+    ])
     return results
