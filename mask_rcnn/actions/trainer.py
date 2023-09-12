@@ -1,6 +1,7 @@
 import os
 from datetime import datetime
 from traceback import format_exception
+import json
 
 import torch
 import numpy as np
@@ -230,8 +231,14 @@ class Trainer(Action):
             ann['id'] = i+1
         for i, ann in enumerate(coco_dt_anns):
             ann['id'] = i+1
+
         coco_data_gt = dict(images=coco_images, categories=coco_categories, annotations=coco_gt_anns)
+        with open(f'{self.output_dir}/{self.prefix}_valid_gt.json', 'w') as f:
+            json.dump(coco_data_gt, f)
+
         coco_data_dt = dict(images=coco_images, categories=coco_categories, annotations=coco_dt_anns)
+        with open(f'{self.output_dir}/{self.prefix}_valid_dt.json', 'w') as f:
+            json.dump(coco_data_dt, f)
 
         coco_metrics = coco_eval_datasets(coco_data_gt, coco_data_dt)
         for k, v in coco_metrics.items():
