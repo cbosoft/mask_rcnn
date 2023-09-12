@@ -45,8 +45,8 @@ def update_coco_datasets_from_batch(
             sx = contours[:, :, 0]
             sy = contours[:, :, 1]
             sx, sy = sx.flatten(), sy.flatten()
-            x1, x2 = np.min(sx), np.max(sx)
-            y1, y2 = np.min(sy), np.max(sy)
+            x1, x2 = int(np.min(sx)), int(np.max(sx))
+            y1, y2 = int(np.min(sy)), int(np.max(sy))
             w = x2 - x1
             h = y2 - y1
             area = w*h
@@ -56,9 +56,9 @@ def update_coco_datasets_from_batch(
             assert len(segmentation) > 4
             annotation = dict(
                 id=-1,
-                image_id=image_id,
+                image_id=int(image_id),
                 category_id=int(label),
-                area=int(area),
+                area=area,
                 segmentation=[[int(f) for f in segmentation]],
                 bbox=[x1, y1, x2, y2],
                 iscrowd=0
@@ -78,8 +78,8 @@ def update_coco_datasets_from_batch(
             sx = contours[:, :, 0]
             sy = contours[:, :, 1]
             sx, sy = sx.flatten(), sy.flatten()
-            x1, x2 = np.min(sx), np.max(sx)
-            y1, y2 = np.min(sy), np.max(sy)
+            x1, x2 = int(np.min(sx)), int(np.max(sx))
+            y1, y2 = int(np.min(sy)), int(np.max(sy))
             w = x2 - x1
             h = y2 - y1
             area = w*h
@@ -92,9 +92,9 @@ def update_coco_datasets_from_batch(
 
             annotation = dict(
                 id=-1,
-                image_id=image_id,
+                image_id=int(image_id),
                 category_id=int(label),
-                area=int(area),
+                area=area,
                 segmentation=[[int(f) for f in segmentation]],
                 bbox=[x1, y1, x2, y2],
                 iscrowd=0,

@@ -49,6 +49,7 @@ class COCO_Image:
 
     def __init__(self, *, id, file_name, width, height, **_):
         self.id = id
+        assert isinstance(self.id, int), f'{self.id}, {type(self.id)}'
         self.file_name: str = file_name
         self.orig_width = width
         self.orig_height = height
@@ -69,7 +70,7 @@ class COCO_Image:
             boxes = torch.tensor([a.bbox for a in self.annotations]).float()
             labels = torch.tensor([a.category_id for a in self.annotations], dtype=torch.int64)
             masks = torch.tensor(np.array([a.get_mask((self.orig_height, self.orig_width)) for a in self.annotations]), dtype=torch.uint8)
-            self.target_dict = dict(boxes=boxes, labels=labels, masks=masks, id=id, file_name=self.file_name, width=self.orig_width, height=self.orig_height)
+            self.target_dict = dict(boxes=boxes, labels=labels, masks=masks, id=self.id, file_name=self.file_name, width=self.orig_width, height=self.orig_height)
         return self.target_dict
 
 
