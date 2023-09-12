@@ -1,5 +1,6 @@
 .env
 training_results
+inference_results
 *.pyc
 __pycache__
 data
