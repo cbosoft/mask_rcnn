@@ -71,6 +71,12 @@ class Trainer(Action):
         self.bar = self.last_checkpoint = None
         self.displayed_metrics = {}
 
+        self.early_stopping_criteria = config.training.early_stopping.criteria
+        self.early_stopping_n_epochs = config.training.early_stopping.n_epochs
+        self.early_stoppping_criteria_history = []
+        self.early_stoppping_threshold = config.training.early_stopping.thresh
+        self.early_stoppping_less_is_better = config.training.early_stopping.less_is_better
+
         self.store = None
         self.base_exp_id = datetime.now().strftime(f'%Y-%m-%d_%H-%M-%S_MaskRCNN')
 
@@ -277,6 +283,7 @@ so that any exceptions can be properly handled, and training status can be logge
 ''')
 
         self.i = self.total_valid_loss = self.total_train_loss = 0
+        self.early_stoppping_criteria_history = []
         self.displayed_metrics = {}
 
         self.device = torch.device(self.device)
@@ -316,6 +323,25 @@ so that any exceptions can be properly handled, and training status can be logge
                     self.last_checkpoint = self.i
 
                 self.update_progress()
+
+                if self.early_stopping_criteria in self.displayed_metrics:
+                    self.early_stoppping_criteria_history.append(self.displayed_metrics[self.early_stopping_criteria])
+                    if len(self.early_stoppping_criteria_history) >= self.early_stopping_n_epochs:
+                        self.early_stoppping_criteria_history = self.early_stoppping_criteria_history[-self.early_stopping_n_epochs:]
+                        grad = np.mean(np.diff(self.early_stoppping_criteria_history))
+                        if (grad > self.early_stoppping_threshold) if self.early_stoppping_less_is_better else (grad < self.early_stoppping_threshold):
+                            print('Valid metric "{}" is {}creasing, stopping early {}{}{}.'.format(
+                                self.early_stopping_criteria,
+                                'in' if self.early_stoppping_less_is_better else 'de',
+                                grad,
+                                '>' if self.early_stoppping_less_is_better else '<',
+                                self.early_stoppping_threshold,
+                                ))
+                            self.bar.close()
+                            break
+                else:
+                    self.early_stoppping_criteria_history = []
+
 
             if self.should_test:
                 assert self.test_dl
@@ -364,4 +390,7 @@ so that any exceptions can be properly handled, and training status can be logge
             desc = f't:{train_loss:.2f}'
         for k, v in self.displayed_metrics.items():
             desc += f'|{k}:{v:.2f}'
+        if self.early_stopping_criteria in self.displayed_metrics:
+            grad = np.mean(np.diff(self.early_stoppping_criteria_history))
+            desc += f'|es:{grad:.2e}'
         self.bar.set_description(desc, False)

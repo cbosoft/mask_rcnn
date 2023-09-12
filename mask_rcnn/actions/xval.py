@@ -53,7 +53,8 @@ class CrossValidator(Trainer):
         if n % self.n_folds:
             n = n - (n % self.n_folds)
             indices = indices[:n]
-
+        
+        fold_epochs = np.full(self.n_folds, self.n_epochs)
         folds = np.split(indices, self.n_folds)
         for i in range(self.n_folds):
             train_indices = np.array(folds[1:]).flatten()
@@ -72,6 +73,7 @@ class CrossValidator(Trainer):
             self.prefix = f'fold{i+1}_'
             self.update_schedkws_iter_count()
             self.train()
+            fold_epochs[i] = self.i
 
         # final training
         self.train_dl = DataLoader(self.master_dataset, **dataloader_kws)
@@ -82,6 +84,10 @@ class CrossValidator(Trainer):
 
         self.prefix = 'final_'
         self.update_schedkws_iter_count()
+        max_fold_epochs = int(np.max(fold_epochs))
+        if max_fold_epochs < self.n_epochs:
+            self.n_epochs = int(max_fold_epochs*1.1)
+            print(f'Folds stopped early ({max_fold_epochs}): stopping final training early too ({self.n_epochs})')
         self.train()
 
     def act(self):

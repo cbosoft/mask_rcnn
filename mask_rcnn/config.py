@@ -141,6 +141,12 @@ def get_config() -> CfgNode:
     cfg.training.sched.exponential = CfgNode()
     cfg.training.sched.exponential.gamma = 0.1
 
+    cfg.training.early_stopping = CfgNode()
+    cfg.training.early_stopping.criteria = 'mAP'
+    cfg.training.early_stopping.n_epochs = 5
+    cfg.training.early_stopping.less_is_better = False
+    cfg.training.early_stopping.thresh = 0.0
+
     cfg.xval = CfgNode()
     cfg.xval.n_folds = 5
 
