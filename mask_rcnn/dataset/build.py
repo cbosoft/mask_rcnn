@@ -10,8 +10,8 @@ def collate_fn(batch):
     return {k: [b[k] for b in batch] for k in batch[0].keys()}
 
 
-def build_dataset(cfg: CfgNode):
-    return COCODataset.from_config(cfg)
+def build_dataset(cfg: CfgNode, **kwargs):
+    return COCODataset.from_config(cfg, **kwargs)
 
 
 def build_dataloaders(cfg: CfgNode):
