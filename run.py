@@ -32,6 +32,8 @@ if __name__ == '__main__':
                 run_func(expt)
             except Exception as e:
                 raise ExperimentFailed(f'Error running experiment "{expt}"') from e
+            except KeyboardInterrupt:
+                exit(0)
             em.send_message(
                 f'Mask R-CNN experiment "{expt}" complete',
                 em.subject.format(kind='Update'),
