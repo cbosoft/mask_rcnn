@@ -6,7 +6,7 @@ import json
 import torch
 import numpy as np
 from torchinfo import summary
-from mldb import Database
+import mlflow
 
 from ..coco_evaluation import coco_eval_datasets, update_coco_datasets_from_batch
 from ..visualisation import visualise_valid_batch
@@ -50,16 +50,14 @@ class Trainer(Action):
             for fn in ds_fns
         ])))
 
-        self.group = config.group.format(
-            data=ds_name,
-            arch=config.model.backbone.kind,
-            tl=config.model.backbone.trainable_layers,
-            n=config.model.backbone.resnet.n,
-            e=config.training.n_epochs,
-            sched=config.training.sched.kind,
-            opt=config.training.opt.kind,
-            augs=str(config.data.augmentations).replace('=', ':')
-        )
+        mlflow.log_param('data', ds_name)
+        mlflow.log_param('arch', config.model.backbone.kind)
+        mlflow.log_param('trainable_layers', config.model.backbone.trainable_layers)
+        mlflow.log_param('resnet_n', config.model.backbone.resnet.n)
+        mlflow.log_param('n_epochs', config.training.n_epochs)
+        mlflow.log_param('lr_sched', config.training.sched.kind)
+        mlflow.log_param('opt', config.training.opt.kind)
+        mlflow.log_param('augs', str(config.data.augmentations).replace('=', ':'))
 
         self.n_epochs = config.training.n_epochs
         self.device = torch.device(config.training.device)
@@ -78,7 +76,6 @@ class Trainer(Action):
         self.early_stoppping_threshold = config.training.early_stopping.thresh
         self.early_stoppping_less_is_better = config.training.early_stopping.less_is_better
 
-        self.store = None
         self.base_exp_id = datetime.now().strftime(f'%Y-%m-%d_%H-%M-%S_MaskRCNN')
 
         self.hyperparams = as_hyperparams(config)
@@ -89,28 +86,16 @@ class Trainer(Action):
 
     def __enter__(self):
         self.as_context_manager = True
+        mlflow.start_run(run_name=self.exp_id)
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
-        # need to re-open conn to db as it is closed before getting here
-        with Database() as self.store:
-            if exc_type is not None:
-                if self.store is not None:
-                    if exc_type is KeyboardInterrupt:
-                        status = 'CANCELLED'
-                    else:
-                        status = 'ERROR'
-
-                    self.store.set_exp_status(self.exp_id, status)
-
-                with open(f'{self.output_dir}/error.txt', 'w') as f:
-                    f.write(''.join(format_exception(exc_type, exc_val, exc_tb)))
-
-            # Always checkpoint.
-            try:
-                self.checkpoint()
-            except:
-                pass  # If checkpoint already exists, the above will raise an exception. Ignore it.
+        # Always checkpoint.
+        try:
+            self.checkpoint()
+        except:
+            pass  # If checkpoint already exists, the above will raise an exception. Ignore it.
+        mlflow.end_run()
 
     @property
     def exp_id(self):
@@ -169,9 +154,9 @@ class Trainer(Action):
         except AttributeError:
             lr = float('nan')
 
-        self.store.add_loss_value(self.exp_id, 'train', self.i, self.total_train_loss / len(self.train_dl))
-        self.store: Database
-        self.store.add_lr_value(self.exp_id, self.i, lr)
+        train_loss = self.total_train_loss / len(self.train_dl)
+        mlflow.log_metric('train.loss', train_loss, step=self.i)
+        mlflow.log_metric('lr', lr, step=self.i)
 
     def validate_or_test(self, dataloader, is_test: bool):
 
@@ -242,19 +227,15 @@ class Trainer(Action):
 
         coco_metrics = coco_eval_datasets(coco_data_gt, coco_data_dt)
         for k, v in coco_metrics.items():
-            self.store.add_metric_value(
-                self.exp_id, f'{valid_or_test}.{k}', self.i, v
-            )
+            mlflow.log_metric(f'{valid_or_test}.{k}', v, step=self.i)
 
         self.displayed_metrics = dict(
             AP50=coco_metrics['AP50'],
             mAP=coco_metrics['mAP'],
         )
 
-        self.store.add_loss_value(
-            self.exp_id, valid_or_test, self.i,
-            (self.total_test_loss if is_test else self.total_valid_loss) / len(dataloader)
-        )
+        this_loss = (self.total_test_loss if is_test else self.total_valid_loss) / len(dataloader)
+        mlflow.log_metric(f'{valid_or_test}.loss', this_loss, step=self.i)
 
     def do_validation(self):
         if self.valid_dl is not None:
@@ -307,61 +288,56 @@ so that any exceptions can be properly handled, and training status can be logge
 
         opt = self.opt_t(self.model.parameters(), **self.opt_kws)
         scheduler = self.sched_t(opt, **self.sched_kws)
-        with Database() as self.store:
-            print(f'Connected to database "{self.store}"')
-            self.store.set_exp_status(self.exp_id, 'TRAINING')
-            self.store.set_config_file(self.exp_id, f'{self.output_dir}/config.yaml')
-            self.store: Database
-            self.store.add_to_group(self.exp_id, self.group)
-            self.do_validation()
-            self.bar = progressbar(range(self.n_epochs), unit='epoch', ncols=80)
-            for _i in self.bar:
-                self.i = _i + 1
 
-                self.total_train_loss = 0
-                self.do_train(opt, scheduler)
+        mlflow.log_artifact(f'{self.output_dir}/config.yaml')
+        self.do_validation()
+        self.bar = progressbar(range(self.n_epochs), unit='epoch', ncols=80)
+        for _i in self.bar:
+            self.i = _i + 1
 
-                self.total_valid_loss = 0.0
-                if self.valid_dl is not None:
-                    self.do_validation()
+            self.total_train_loss = 0
+            self.do_train(opt, scheduler)
 
-                if self.should_checkpoint:
-                    self.checkpoint()
-                    self.last_checkpoint = self.i
+            self.total_valid_loss = 0.0
+            if self.valid_dl is not None:
+                self.do_validation()
 
-                self.update_progress()
-
-                if self.early_stopping_criteria in self.displayed_metrics:
-                    self.early_stoppping_criteria_history.append(self.displayed_metrics[self.early_stopping_criteria])
-                    if len(self.early_stoppping_criteria_history) >= self.early_stopping_n_epochs:
-                        self.early_stoppping_criteria_history = self.early_stoppping_criteria_history[-self.early_stopping_n_epochs:]
-                        grad = np.mean(np.diff(self.early_stoppping_criteria_history))
-                        if (grad > self.early_stoppping_threshold) if self.early_stoppping_less_is_better else (grad < self.early_stoppping_threshold):
-                            print('Valid metric "{}" is {}creasing, stopping early {}{}{}.'.format(
-                                self.early_stopping_criteria,
-                                'in' if self.early_stoppping_less_is_better else 'de',
-                                grad,
-                                '>' if self.early_stoppping_less_is_better else '<',
-                                self.early_stoppping_threshold,
-                                ))
-                            self.bar.close()
-                            break
-                else:
-                    self.early_stoppping_criteria_history = []
-
-
-            if self.should_test:
-                assert self.test_dl
-                # print('Loading best model state (decided based on validation set results)')
-                # self.model.load_state_dict(torch.load(f'{self.output_dir}/{self.prefix}model_min_loss.pth'))
-                print('Running on test dataset')
-                self.do_test()
-
-            self.store.set_exp_status(self.exp_id, 'COMPLETE')
-            try:
+            if self.should_checkpoint:
                 self.checkpoint()
-            except:
-                pass
+                self.last_checkpoint = self.i
+
+            self.update_progress()
+
+            if self.early_stopping_criteria in self.displayed_metrics:
+                self.early_stoppping_criteria_history.append(self.displayed_metrics[self.early_stopping_criteria])
+                if len(self.early_stoppping_criteria_history) >= self.early_stopping_n_epochs:
+                    self.early_stoppping_criteria_history = self.early_stoppping_criteria_history[-self.early_stopping_n_epochs:]
+                    grad = np.mean(np.diff(self.early_stoppping_criteria_history))
+                    if (grad > self.early_stoppping_threshold) if self.early_stoppping_less_is_better else (grad < self.early_stoppping_threshold):
+                        print('Valid metric "{}" is {}creasing, stopping early {}{}{}.'.format(
+                            self.early_stopping_criteria,
+                            'in' if self.early_stoppping_less_is_better else 'de',
+                            grad,
+                            '>' if self.early_stoppping_less_is_better else '<',
+                            self.early_stoppping_threshold,
+                            ))
+                        self.bar.close()
+                        break
+            else:
+                self.early_stoppping_criteria_history = []
+
+
+        if self.should_test:
+            assert self.test_dl
+            # print('Loading best model state (decided based on validation set results)')
+            # self.model.load_state_dict(torch.load(f'{self.output_dir}/{self.prefix}model_min_loss.pth'))
+            print('Running on test dataset')
+            self.do_test()
+
+        try:
+            self.checkpoint()
+        except:
+            pass
         self.deploy(f'{self.output_dir}/{self.prefix}model')
 
     def deploy(self, path_no_ext: str):
@@ -369,15 +345,9 @@ so that any exceptions can be properly handled, and training status can be logge
 
         assert not path_no_ext.endswith('.ts')
         path = path_no_ext + '.ts'
-        print(f'Deploying {self.model.__class__.__name__} (CPU) to {path!r}')
+        print(f'Deploying {self.model.__class__.__name__} to {path!r}')
         scripted = torch.jit.script(self.model.cpu())
         torch.jit.save(scripted, path)
-
-        if torch.cuda.is_available():
-            path = path_no_ext + '_cuda.ts'
-            print(f'Deploying {self.model.__class__.__name__} (CUDA) to {path!r}')
-            scripted = torch.jit.script(self.model.cuda())
-            scripted.save(path)
 
     def act(self):
         self.train()
@@ -385,7 +355,7 @@ so that any exceptions can be properly handled, and training status can be logge
     def checkpoint(self):
         state_path = f'{self.output_dir}/{self.prefix}model_state_at_epoch={self.i}.pth'
         torch.save(self.model.state_dict(), state_path)
-        self.store.add_state_file(self.exp_id, self.i, state_path)
+        mlflow.log_artifact(state_path)
 
     def update_progress(self):
         train_loss = self.total_train_loss / len(self.train_dl)

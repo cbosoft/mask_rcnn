@@ -1,4 +1,3 @@
-import mldb
 import torch
 from torch import nn
 from torchvision.models import (
@@ -84,14 +83,7 @@ def build_model(cfg: CfgNode, quiet=False) -> MaskRCNN:
         print(model)
 
     if cfg.model.state:
-        if isinstance(cfg.model.state, str):
-            state_file = cfg.model.state
-        else:
-            assert isinstance(cfg.model.state, tuple)
-            assert len(cfg.model.state) == 2
-            expid, epoch = cfg.model.state
-            with mldb.Database() as db:
-                state_file = db.get_state_file(expid, epoch)
+        state_file = cfg.model.state
         model.load_state_dict(torch.load(state_file, map_location=cfg.training.device))
 
     return model
