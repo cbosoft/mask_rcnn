@@ -67,9 +67,9 @@ class COCO_Image:
 
     def get_target_dict(self) -> dict:
         if self.target_dict is None:
-            boxes = torch.tensor([a.bbox for a in self.annotations]).float()
+            boxes = torch.tensor([a.bbox for a in self.annotations]).float().reshape(-1, 4)
             labels = torch.tensor([a.category_id for a in self.annotations], dtype=torch.int64)
-            masks = torch.tensor(np.array([a.get_mask((self.orig_height, self.orig_width)) for a in self.annotations]), dtype=torch.uint8)
+            masks = torch.tensor(np.array([a.get_mask((self.orig_height, self.orig_width)) for a in self.annotations]), dtype=torch.uint8).reshape(-1, self.orig_height, self.orig_width)
             self.target_dict = dict(boxes=boxes, labels=labels, masks=masks, id=self.id, file_name=self.file_name, width=self.orig_width, height=self.orig_height)
         return self.target_dict
 
@@ -91,7 +91,7 @@ class COCODataset(_TorchDataset):
         return fns
 
     @classmethod
-    def from_config(cls, cfg: CfgNode, filter_images='empty'):
+    def from_config(cls, cfg: CfgNode, filter_images='implicit-empty'):
         """
         Create dataset from COCO-format json file(s)
 
@@ -130,6 +130,11 @@ class COCODataset(_TorchDataset):
                 images_filtered = list(images_by_orig_id.values())
             elif filter_images == 'empty':
                 images_filtered = [im for im in images_by_orig_id.values() if im.annotations]
+            elif filter_images == 'implicit-empty':
+                images_filtered = [
+                    im for im in images_by_orig_id.values()
+                    if im.annotations or im.empty
+                ]
             elif filter_images == 'annot':
                 images_filtered = [im for im in images_by_orig_id.values() if not im.annotations]
             else:
