@@ -24,6 +24,8 @@ from ..balance_plot import balance_plot
 class Trainer(Action):
 
     def __init__(self, config: CfgNode):
+        self.prefix = ''
+        self.base_exp_id = datetime.now().strftime(f'%Y-%m-%d_%H-%M-%S_MaskRCNN')
         self.model = build_model(config)
         if config.debug_mode:
             print(self.model)
@@ -50,7 +52,14 @@ class Trainer(Action):
             for fn in ds_fns
         ])))
 
-        mlflow.log_param('data', ds_name)
+        mlflow.set_experiment('Mask R-CNN')
+        mlflow.set_experiment_tag('task', 'object detection')
+
+        mlflow.start_run(run_name=self.exp_id)
+        if self.train_dl is not None:
+            mlflow.log_param('n_data.train', len(self.train_dl))
+        if self.valid_dl is not None:
+            mlflow.log_param('n_data.valid', len(self.valid_dl))
         mlflow.log_param('arch', config.model.backbone.kind)
         mlflow.log_param('trainable_layers', config.model.backbone.trainable_layers)
         mlflow.log_param('resnet_n', config.model.backbone.resnet.n)
@@ -76,17 +85,14 @@ class Trainer(Action):
         self.early_stoppping_threshold = config.training.early_stopping.thresh
         self.early_stoppping_less_is_better = config.training.early_stopping.less_is_better
 
-        self.base_exp_id = datetime.now().strftime(f'%Y-%m-%d_%H-%M-%S_MaskRCNN')
 
         self.hyperparams = as_hyperparams(config)
 
         # used by sub_classes
-        self.prefix = ''
         self.as_context_manager = False
 
     def __enter__(self):
         self.as_context_manager = True
-        mlflow.start_run(run_name=self.exp_id)
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
@@ -152,7 +158,10 @@ class Trainer(Action):
         try:
             lr = scheduler.get_last_lr()[0]
         except AttributeError:
-            lr = float('nan')
+            try:
+                lr = opt.defaults['lr']
+            except:
+                lr = float('nan')
 
         train_loss = self.total_train_loss / len(self.train_dl)
         mlflow.log_metric('train.loss', train_loss, step=self.i)

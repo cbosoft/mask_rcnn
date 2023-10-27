@@ -3,6 +3,8 @@ from matplotlib.patches import Polygon
 import cv2
 import numpy as np
 
+import mlflow
+
 from .classes import bgr_colour_for_class
 
 
@@ -41,7 +43,7 @@ def visualise_valid_batch(images, targets, outputs, should_show_visualisations: 
             xy = np.array(list(zip(x, y)))
             colour = bgr_colour_for_class(lbl)
             colour = [v/255. for v in colour[::-1]]
-            axes[2].patches.append(Polygon(xy, alpha=0.5, facecolor=colour))
+            axes[2].add_patch(Polygon(xy, alpha=0.5, facecolor=colour))
 
         # draw ground truth
         plt.sca(axes[1])
@@ -55,10 +57,12 @@ def visualise_valid_batch(images, targets, outputs, should_show_visualisations: 
             xy = np.array(list(zip(x, y)))
             colour = bgr_colour_for_class(lbl)
             colour = [v/255. for v in colour[::-1]]
-            axes[1].patches.append(Polygon(xy, alpha=0.5, facecolor=colour))
+            axes[1].add_patch(Polygon(xy, alpha=0.5, facecolor=colour))
 
         plt.tight_layout()
         if should_show_visualisations:
             plt.show()
-        plt.savefig(f'{output_dir}/{prefix}seg_{i}_epoch={epoch}.jpg')
+        fn = f'{output_dir}/{prefix}seg_{i}_epoch={epoch}.jpg'
+        plt.savefig(fn)
+        mlflow.log_artifact(fn)
         plt.close()
