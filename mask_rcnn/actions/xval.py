@@ -1,5 +1,6 @@
 import numpy as np
 import torch
+import mlflow
 
 from torch.utils.data import DataLoader, Subset
 
@@ -14,6 +15,7 @@ class CrossValidator(Trainer):
         self.frac_test = cfg.data.frac_test
         self.master_dataset = None
         super().__init__(cfg)
+        mlflow.set_experiment_tag('action', 'xval')
 
         print('Save original model state')
         torch.save(self.model.state_dict(), f'{self.output_dir}/original_state.pth')
