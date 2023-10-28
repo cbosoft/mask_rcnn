@@ -20,6 +20,7 @@ def get_config() -> CfgNode:
     # pattern to use to create the output directory, where training results are stored.
     cfg.output_dir = 'training_results/%Y-%m-%d_%H-%M-%S'
     cfg.group = 'Mask R-CNN exp;data={data};arch={arch};tl={tl};n={n};e={e};sched={sched};opt={opt};augs={augs};'
+    cfg.tag = None
 
     ####################################################################################################################
     cfg.data = CfgNode()
@@ -181,12 +182,15 @@ def finalise(cfg: CfgNode):
 
 def as_hyperparams(cfg: CfgNode) -> dict:
     rv = dict()
-    rv['model/architecture'] = 'Mask R-CNN'  # obviously...
-    rv['model/backbone'] = cfg.model.backbone.kind
-    rv['model/pretrained'] = 'No' if cfg.model.state is not None else f'Yes - {cfg.model.state}'
+    rv['model.architecture'] = 'Mask R-CNN'  # obviously...
+    rv['model.backbone'] = cfg.model.backbone.kind
+    rv['model.pretrained'] = 'No' if cfg.model.state is not None else f'Yes - {cfg.model.state}'
+    if cfg.model.backbone.kind == 'resnet':
+        rv['model.resnet.n'] = cfg.model.backbone.resnet.n
+    rv['model.backbone.trainable_layers'] = cfg.model.backbone.trainable_layers
     # for k, v in dict(cfg.data).items():
     #     rv[f'data/{k}'] = v
-    rv['training/n_epochs'] = cfg.training.n_epochs
-    rv['training/batch_size'] = cfg.training.batch_size
-    rv['training/device'] = cfg.training.device
+    rv['training.n_epochs'] = cfg.training.n_epochs
+    rv['training.batch_size'] = cfg.training.batch_size
+    rv['training.device'] = cfg.training.device
     return rv
