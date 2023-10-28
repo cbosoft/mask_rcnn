@@ -23,9 +23,9 @@ from ..balance_plot import balance_plot
 
 class Trainer(Action):
 
-    def __init__(self, config: CfgNode):
-        self.prefix = ''
-        self.base_exp_id = datetime.now().strftime(f'%Y-%m-%d_%H-%M-%S_MaskRCNN')
+    def __init__(self, config: CfgNode, prefix=''):
+        self.prefix = prefix
+        self.base_exp_id = datetime.now().strftime(f'Mask R-CNN on %Y-%m-%d at %H-%M-%S')
         self.model = build_model(config)
         if config.debug_mode:
             print(self.model)
@@ -52,21 +52,10 @@ class Trainer(Action):
             for fn in ds_fns
         ])))
 
-        mlflow.set_experiment('Mask R-CNN')
+        mlflow.set_experiment(self.base_exp_id)
         mlflow.set_experiment_tag('task', 'object detection')
-
-        mlflow.start_run(run_name=self.exp_id)
-        if self.train_dl is not None:
-            mlflow.log_param('n_data.train', len(self.train_dl))
-        if self.valid_dl is not None:
-            mlflow.log_param('n_data.valid', len(self.valid_dl))
-        mlflow.log_param('arch', config.model.backbone.kind)
-        mlflow.log_param('trainable_layers', config.model.backbone.trainable_layers)
-        mlflow.log_param('resnet_n', config.model.backbone.resnet.n)
-        mlflow.log_param('n_epochs', config.training.n_epochs)
-        mlflow.log_param('lr_sched', config.training.sched.kind)
-        mlflow.log_param('opt', config.training.opt.kind)
-        mlflow.log_param('augs', str(config.data.augmentations).replace('=', ':'))
+        mlflow.set_experiment_tag('action', 'train')
+        mlflow.set_experiment_tag('tag', config.tag or 'unset')
 
         self.n_epochs = config.training.n_epochs
         self.device = torch.device(config.training.device)
@@ -84,7 +73,6 @@ class Trainer(Action):
         self.early_stoppping_criteria_history = []
         self.early_stoppping_threshold = config.training.early_stopping.thresh
         self.early_stoppping_less_is_better = config.training.early_stopping.less_is_better
-
 
         self.hyperparams = as_hyperparams(config)
 
@@ -104,8 +92,12 @@ class Trainer(Action):
         mlflow.end_run()
 
     @property
+    def affix(self) -> str:
+        return self.prefix.rstrip('_')
+
+    @property
     def exp_id(self):
-        suffix = self.prefix.rstrip('_')
+        suffix = self.affix
         if suffix:
             suffix = '_' + suffix
         return self.base_exp_id + suffix
@@ -132,6 +124,10 @@ class Trainer(Action):
                 rv[k] = v
             rvs.append(rv)
         return rvs
+
+    def init_run(self):
+        mlflow.start_run(run_name=self.affix or 'run')
+        mlflow.log_params(self.hyperparams)
 
     def do_train(self, opt, scheduler):
         self.model.train()
@@ -270,6 +266,8 @@ class Trainer(Action):
 
     def train(self):
 
+        self.init_run()
+
         if not self.as_context_manager:
             print('''Trainer should ideally be used as a context manager:
 ```
@@ -348,6 +346,7 @@ so that any exceptions can be properly handled, and training status can be logge
         except:
             pass
         self.deploy(f'{self.output_dir}/{self.prefix}model')
+        mlflow.end_run()
 
     def deploy(self, path_no_ext: str):
         self.model.eval()
