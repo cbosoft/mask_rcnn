@@ -47,7 +47,7 @@ class COCO_Annotation:
 
 class COCO_Image:
 
-    def __init__(self, *, id, file_name, width, height, **_):
+    def __init__(self, *, id, file_name, width, height, empty=False, **_):
         self.id = id
         assert isinstance(self.id, int), f'{self.id}, {type(self.id)}'
         self.file_name: str = file_name
@@ -55,6 +55,7 @@ class COCO_Image:
         self.orig_height = height
         self.annotations: List[COCO_Annotation] = []
         self.target_dict = None
+        self.empty = empty
 
     def _get_image(self) -> torch.Tensor:
         image = cv2.imread(self.file_name, cv2.IMREAD_COLOR)
