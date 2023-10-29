@@ -69,6 +69,7 @@ def get_config() -> CfgNode:
     # affects GPU usage
     cfg.model.rpn_anchor_generator.sizes = [32, 64, 128, 256, 512]
     cfg.model.rpn_anchor_generator.aspect_ratios = [0.5, 1.0, 2.0]
+    cfg.model.rpn_batch_size_per_image = 256
     
     cfg.model.roi_pooler = CfgNode()
     cfg.model.roi_pooler.featmaps = ['0']
@@ -188,6 +189,7 @@ def as_hyperparams(cfg: CfgNode) -> dict:
     if cfg.model.backbone.kind == 'resnet':
         rv['model.resnet.n'] = cfg.model.backbone.resnet.n
     rv['model.backbone.trainable_layers'] = cfg.model.backbone.trainable_layers
+    rv['model.rpn.batch'] = cfg.model.rpn_batch_size_per_image
     # for k, v in dict(cfg.data).items():
     #     rv[f'data/{k}'] = v
     rv['training.n_epochs'] = cfg.training.n_epochs

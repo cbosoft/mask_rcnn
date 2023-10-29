@@ -71,6 +71,7 @@ def build_model(cfg: CfgNode, quiet=False) -> MaskRCNN:
         backbone=build_backbone(cfg),
         num_classes=cfg.model.n_classes,
         rpn_anchor_generator=build_rpn_anchor_generator(cfg),
+        rpn_batch_size_per_image=cfg.model.rpn_batch_size_per_image,
         box_roi_pool=build_box_roi_pooler(cfg),
         mask_roi_pool=build_mask_roi_pooler(cfg),
         image_mean=[0.485, 0.456, 0.406],
