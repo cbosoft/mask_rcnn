@@ -92,7 +92,17 @@ class COCODataset(_TorchDataset):
         fns = []
         for pattern in cfg.data.pattern:
             fns.extend(glob(pattern))
-        return fns
+        json_fns = []
+        for fn in fns:
+            if fn.endswith('.txt'):
+                with open(fn) as f:
+                    for line in f.readlines():
+                        line = line.strip()
+                        if line:
+                            json_fns.extend(glob(line))
+            else:
+                json_fns.append(fn)
+        return [fn for fn in json_fns if fn]
 
     @classmethod
     def from_config(cls, cfg: CfgNode, filter_images='implicit-empty'):
