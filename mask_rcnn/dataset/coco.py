@@ -74,6 +74,9 @@ class COCO_Image:
             self.target_dict = dict(boxes=boxes, labels=labels, masks=masks, id=self.id, file_name=self.file_name, width=self.orig_width, height=self.orig_height)
         return self.target_dict
 
+    def ok(self) -> bool:
+        return cv2.imread(self.file_name) is not None
+
 
 class COCODataset(_TorchDataset):
 
@@ -140,6 +143,7 @@ class COCODataset(_TorchDataset):
                 images_filtered = [im for im in images_by_orig_id.values() if not im.annotations]
             else:
                 raise ValueError(f'Didn\'t understand value for $filter_images ({filter_images}), should be one of "none", "empty", or "annot"')
+            images_filtered = [im for im in progressbar(images_filtered, desc='filtering bad files') if im.ok()]
             n_images = len(images_filtered)
             if n_images < orig_n_images:
                 print(f'Filtered {orig_n_images - n_images} {filter_images} images from dataset "{fn}" ({n_images} remain).')
