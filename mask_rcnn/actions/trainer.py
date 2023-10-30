@@ -126,6 +126,7 @@ class Trainer(Action):
         return rvs
 
     def init_run(self):
+        mlflow.end_run()
         mlflow.start_run(run_name=self.affix or 'run')
         mlflow.log_params(self.hyperparams)
 
@@ -346,7 +347,6 @@ so that any exceptions can be properly handled, and training status can be logge
         except:
             pass
         self.deploy(f'{self.output_dir}/{self.prefix}model')
-        mlflow.end_run()
 
     def deploy(self, path_no_ext: str):
         self.model.eval()
