@@ -128,7 +128,10 @@ class Trainer(Action):
     def init_run(self):
         mlflow.end_run()
         mlflow.start_run(run_name=self.affix or 'run')
-        mlflow.log_params(self.hyperparams)
+        params = dict(self.hyperparams)
+        if self.train_dl is not None:
+            params['n_train_data'] = len(self.train_dl)*self.train_dl.batch_size
+        mlflow.log_params(params)
 
     def do_train(self, opt, scheduler):
         self.model.train()
