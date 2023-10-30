@@ -185,7 +185,8 @@ def as_hyperparams(cfg: CfgNode) -> dict:
     rv = dict()
     rv['model.architecture'] = 'Mask R-CNN'  # obviously...
     rv['model.backbone'] = cfg.model.backbone.kind
-    rv['model.pretrained'] = 'No' if cfg.model.state is not None else f'Yes - {cfg.model.state}'
+    state_name = cfg.model.state or 'COCO'
+    rv['model.pretrained'] = 'No' if cfg.model.state is not None else f'Yes - {state_name}'
     if cfg.model.backbone.kind == 'resnet':
         rv['model.resnet.n'] = cfg.model.backbone.resnet.n
     rv['model.backbone.trainable_layers'] = cfg.model.backbone.trainable_layers
