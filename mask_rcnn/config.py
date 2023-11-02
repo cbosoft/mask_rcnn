@@ -20,6 +20,7 @@ def get_config() -> CfgNode:
     # pattern to use to create the output directory, where training results are stored.
     cfg.output_dir = 'training_results/%Y-%m-%d_%H-%M-%S'
     cfg.group = 'Mask R-CNN exp;data={data};arch={arch};tl={tl};n={n};e={e};sched={sched};opt={opt};augs={augs};'
+    cfg.tag = None
 
     ####################################################################################################################
     cfg.data = CfgNode()
@@ -68,6 +69,7 @@ def get_config() -> CfgNode:
     # affects GPU usage
     cfg.model.rpn_anchor_generator.sizes = [32, 64, 128, 256, 512]
     cfg.model.rpn_anchor_generator.aspect_ratios = [0.5, 1.0, 2.0]
+    cfg.model.rpn_batch_size_per_image = 256
     
     cfg.model.roi_pooler = CfgNode()
     cfg.model.roi_pooler.featmaps = ['0']
@@ -181,12 +183,17 @@ def finalise(cfg: CfgNode):
 
 def as_hyperparams(cfg: CfgNode) -> dict:
     rv = dict()
-    rv['model/architecture'] = 'Mask R-CNN'  # obviously...
-    rv['model/backbone'] = cfg.model.backbone.kind
-    rv['model/pretrained'] = 'No' if cfg.model.state is not None else f'Yes - {cfg.model.state}'
+    rv['model.architecture'] = 'Mask R-CNN'  # obviously...
+    rv['model.backbone'] = cfg.model.backbone.kind
+    state_name = cfg.model.state or 'COCO'
+    rv['model.pretrained'] = 'No' if cfg.model.state is not None else f'Yes - {state_name}'
+    if cfg.model.backbone.kind == 'resnet':
+        rv['model.resnet.n'] = cfg.model.backbone.resnet.n
+    rv['model.backbone.trainable_layers'] = cfg.model.backbone.trainable_layers
+    rv['model.rpn.batch'] = cfg.model.rpn_batch_size_per_image
     # for k, v in dict(cfg.data).items():
     #     rv[f'data/{k}'] = v
-    rv['training/n_epochs'] = cfg.training.n_epochs
-    rv['training/batch_size'] = cfg.training.batch_size
-    rv['training/device'] = cfg.training.device
+    rv['training.n_epochs'] = cfg.training.n_epochs
+    rv['training.batch_size'] = cfg.training.batch_size
+    rv['training.device'] = cfg.training.device
     return rv

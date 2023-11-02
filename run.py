@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 import argparse
 import os
+import mlflow
 
 from email_notifier import EmailNotifier
 
@@ -11,11 +12,15 @@ def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument('experiment', nargs='+')
     parser.add_argument('--no-tmux', '-n', action='store_true', default=False)
+    parser.add_argument('--no-update', action='store_true', default=False)
     return parser.parse_args()
 
 
 class ExperimentFailed(Exception):
     pass
+
+
+mlflow.set_tracking_uri('http://130.159.94.187:5454')
 
 
 if __name__ == '__main__':
@@ -34,9 +39,11 @@ if __name__ == '__main__':
                 raise ExperimentFailed(f'Error running experiment "{expt}"') from e
             except KeyboardInterrupt:
                 exit(0)
-            em.send_message(
-                f'Mask R-CNN experiment "{expt}" complete',
-                em.subject.format(kind='Update'),
-                is_html=True,
-                **em.config
-            )
+
+            if not args.no_update:
+                em.send_message(
+                    f'Mask R-CNN experiment "{expt}" complete',
+                    em.subject.format(kind='Update'),
+                    is_html=True,
+                    **em.config
+                )

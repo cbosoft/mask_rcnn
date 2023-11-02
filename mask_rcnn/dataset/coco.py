@@ -47,7 +47,7 @@ class COCO_Annotation:
 
 class COCO_Image:
 
-    def __init__(self, *, id, file_name, width, height, **_):
+    def __init__(self, *, id, file_name, width, height, empty=False, **_):
         self.id = id
         assert isinstance(self.id, int), f'{self.id}, {type(self.id)}'
         self.file_name: str = file_name
@@ -55,6 +55,7 @@ class COCO_Image:
         self.orig_height = height
         self.annotations: List[COCO_Annotation] = []
         self.target_dict = None
+        self.empty = empty
 
     def _get_image(self) -> torch.Tensor:
         image = cv2.imread(self.file_name, cv2.IMREAD_COLOR)
@@ -67,11 +68,14 @@ class COCO_Image:
 
     def get_target_dict(self) -> dict:
         if self.target_dict is None:
-            boxes = torch.tensor([a.bbox for a in self.annotations]).float()
+            boxes = torch.tensor([a.bbox for a in self.annotations]).float().reshape(-1, 4)
             labels = torch.tensor([a.category_id for a in self.annotations], dtype=torch.int64)
-            masks = torch.tensor(np.array([a.get_mask((self.orig_height, self.orig_width)) for a in self.annotations]), dtype=torch.uint8)
+            masks = torch.tensor(np.array([a.get_mask((self.orig_height, self.orig_width)) for a in self.annotations]), dtype=torch.uint8).reshape(-1, self.orig_height, self.orig_width)
             self.target_dict = dict(boxes=boxes, labels=labels, masks=masks, id=self.id, file_name=self.file_name, width=self.orig_width, height=self.orig_height)
         return self.target_dict
+
+    def ok(self) -> bool:
+        return cv2.imread(self.file_name) is not None
 
 
 class COCODataset(_TorchDataset):
@@ -88,10 +92,20 @@ class COCODataset(_TorchDataset):
         fns = []
         for pattern in cfg.data.pattern:
             fns.extend(glob(pattern))
-        return fns
+        json_fns = []
+        for fn in fns:
+            if fn.endswith('.txt'):
+                with open(fn) as f:
+                    for line in f.readlines():
+                        line = line.strip()
+                        if line:
+                            json_fns.extend(glob(line))
+            else:
+                json_fns.append(fn)
+        return [fn for fn in json_fns if fn]
 
     @classmethod
-    def from_config(cls, cfg: CfgNode, filter_images='empty'):
+    def from_config(cls, cfg: CfgNode, filter_images='implicit-empty'):
         """
         Create dataset from COCO-format json file(s)
 
@@ -130,10 +144,16 @@ class COCODataset(_TorchDataset):
                 images_filtered = list(images_by_orig_id.values())
             elif filter_images == 'empty':
                 images_filtered = [im for im in images_by_orig_id.values() if im.annotations]
+            elif filter_images == 'implicit-empty':
+                images_filtered = [
+                    im for im in images_by_orig_id.values()
+                    if im.annotations or im.empty
+                ]
             elif filter_images == 'annot':
                 images_filtered = [im for im in images_by_orig_id.values() if not im.annotations]
             else:
                 raise ValueError(f'Didn\'t understand value for $filter_images ({filter_images}), should be one of "none", "empty", or "annot"')
+            images_filtered = [im for im in progressbar(images_filtered, desc='filtering bad files') if im.ok()]
             n_images = len(images_filtered)
             if n_images < orig_n_images:
                 print(f'Filtered {orig_n_images - n_images} {filter_images} images from dataset "{fn}" ({n_images} remain).')

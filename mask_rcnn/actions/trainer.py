@@ -9,7 +9,7 @@ from torchinfo import summary
 import mlflow
 
 from ..coco_evaluation import coco_eval_datasets, update_coco_datasets_from_batch
-from ..visualisation import visualise_valid_batch
+from ..visualisation import visualise_valid_batch, visualise_seg
 from ..config import CfgNode, as_hyperparams
 from ..progress_bar import progressbar
 from ..model import build_model
@@ -23,7 +23,9 @@ from ..balance_plot import balance_plot
 
 class Trainer(Action):
 
-    def __init__(self, config: CfgNode):
+    def __init__(self, config: CfgNode, prefix=''):
+        self.prefix = prefix
+        self.base_exp_id = datetime.now().strftime(f'Mask R-CNN on %Y-%m-%d at %H-%M-%S')
         self.model = build_model(config)
         if config.debug_mode:
             print(self.model)
@@ -50,14 +52,10 @@ class Trainer(Action):
             for fn in ds_fns
         ])))
 
-        mlflow.log_param('data', ds_name)
-        mlflow.log_param('arch', config.model.backbone.kind)
-        mlflow.log_param('trainable_layers', config.model.backbone.trainable_layers)
-        mlflow.log_param('resnet_n', config.model.backbone.resnet.n)
-        mlflow.log_param('n_epochs', config.training.n_epochs)
-        mlflow.log_param('lr_sched', config.training.sched.kind)
-        mlflow.log_param('opt', config.training.opt.kind)
-        mlflow.log_param('augs', str(config.data.augmentations).replace('=', ':'))
+        mlflow.set_experiment(self.base_exp_id)
+        mlflow.set_experiment_tag('task', 'object detection')
+        mlflow.set_experiment_tag('action', 'train')
+        mlflow.set_experiment_tag('tag', config.tag or 'unset')
 
         self.n_epochs = config.training.n_epochs
         self.device = torch.device(config.training.device)
@@ -76,17 +74,13 @@ class Trainer(Action):
         self.early_stoppping_threshold = config.training.early_stopping.thresh
         self.early_stoppping_less_is_better = config.training.early_stopping.less_is_better
 
-        self.base_exp_id = datetime.now().strftime(f'%Y-%m-%d_%H-%M-%S_MaskRCNN')
-
         self.hyperparams = as_hyperparams(config)
 
         # used by sub_classes
-        self.prefix = ''
         self.as_context_manager = False
 
     def __enter__(self):
         self.as_context_manager = True
-        mlflow.start_run(run_name=self.exp_id)
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
@@ -98,8 +92,12 @@ class Trainer(Action):
         mlflow.end_run()
 
     @property
+    def affix(self) -> str:
+        return self.prefix.rstrip('_')
+
+    @property
     def exp_id(self):
-        suffix = self.prefix.rstrip('_')
+        suffix = self.affix
         if suffix:
             suffix = '_' + suffix
         return self.base_exp_id + suffix
@@ -127,6 +125,14 @@ class Trainer(Action):
             rvs.append(rv)
         return rvs
 
+    def init_run(self):
+        mlflow.end_run()
+        mlflow.start_run(run_name=self.affix or 'run')
+        params = dict(self.hyperparams)
+        if self.train_dl is not None:
+            params['n_train_data'] = len(self.train_dl)*self.train_dl.batch_size
+        mlflow.log_params(params)
+
     def do_train(self, opt, scheduler):
         self.model.train()
         for batch in self.train_dl:
@@ -152,7 +158,10 @@ class Trainer(Action):
         try:
             lr = scheduler.get_last_lr()[0]
         except AttributeError:
-            lr = float('nan')
+            try:
+                lr = opt.defaults['lr']
+            except:
+                lr = float('nan')
 
         train_loss = self.total_train_loss / len(self.train_dl)
         mlflow.log_metric('train.loss', train_loss, step=self.i)
@@ -189,6 +198,7 @@ class Trainer(Action):
 
             self.model.eval()
             done_vis = False
+            ii = 0
             for batch in dataloader:
                 inp = batch['image']
                 if isinstance(inp, list):
@@ -198,15 +208,26 @@ class Trainer(Action):
                 tgt = self.prep_target(batch['target'])
                 out = self.model(inp)
 
-                if not done_vis and ((self.i % self.visualise_every) == 0) and not is_test:
-                    visualise_valid_batch(
+                should_visualise = ((self.i % self.visualise_every) == 0) and not is_test
+                if should_visualise:
+                    if not done_vis:
+                        visualise_valid_batch(
+                            inp, tgt, out,
+                            self.should_show_visualisations,
+                            output_dir=self.output_dir,
+                            epoch=self.i,
+                            prefix=self.prefix,
+                        )
+                        done_vis = True
+
+                    visualise_seg(
                         inp, tgt, out,
-                        self.should_show_visualisations,
                         output_dir=self.output_dir,
                         epoch=self.i,
                         prefix=self.prefix,
+                        o=ii,
                     )
-                    done_vis = True
+                    ii += len(inp)
 
                 # Add GT, DT to coco datasets
                 update_coco_datasets_from_batch(coco_images, coco_gt_anns, coco_dt_anns, tgt, out)
@@ -260,6 +281,8 @@ class Trainer(Action):
                 f.write(f'{line}\n')
 
     def train(self):
+
+        self.init_run()
 
         if not self.as_context_manager:
             print('''Trainer should ideally be used as a context manager:

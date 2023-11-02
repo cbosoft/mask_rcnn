@@ -3,6 +3,8 @@ from matplotlib.patches import Polygon
 import cv2
 import numpy as np
 
+import mlflow
+
 from .classes import bgr_colour_for_class
 
 
@@ -41,7 +43,7 @@ def visualise_valid_batch(images, targets, outputs, should_show_visualisations: 
             xy = np.array(list(zip(x, y)))
             colour = bgr_colour_for_class(lbl)
             colour = [v/255. for v in colour[::-1]]
-            axes[2].patches.append(Polygon(xy, alpha=0.5, facecolor=colour))
+            axes[2].add_patch(Polygon(xy, alpha=0.5, facecolor=colour))
 
         # draw ground truth
         plt.sca(axes[1])
@@ -55,10 +57,49 @@ def visualise_valid_batch(images, targets, outputs, should_show_visualisations: 
             xy = np.array(list(zip(x, y)))
             colour = bgr_colour_for_class(lbl)
             colour = [v/255. for v in colour[::-1]]
-            axes[1].patches.append(Polygon(xy, alpha=0.5, facecolor=colour))
+            axes[1].add_patch(Polygon(xy, alpha=0.5, facecolor=colour))
 
         plt.tight_layout()
         if should_show_visualisations:
             plt.show()
-        plt.savefig(f'{output_dir}/{prefix}seg_{i}_epoch={epoch}.jpg')
+        fn = f'{output_dir}/{prefix}seg-v-gt_{i}_epoch={epoch}.jpg'
+        plt.savefig(fn)
+        mlflow.log_artifact(fn, f'{prefix}seg-v-gt')
+        plt.close()
+
+
+def visualise_seg(images, targets, outputs, output_dir: str, epoch: int, prefix: str, o: int = 0):
+
+    for i, (image, target, output) in enumerate(zip(images, targets, outputs)):
+        fig = plt.figure()
+        plt.axis('off')
+
+        # prep image for vis
+        image = (image.permute(1, 2, 0) * 255.).cpu().numpy().astype('uint8')
+
+        # draw prediction
+        plt.imshow(image)
+        omasks, oscores, olabels = output['masks'], output['scores'], output['labels']
+        msl = list(zip(*filter(lambda mbs: mbs[1] > 0.1, zip(omasks, oscores, olabels))))
+        if msl:
+            omasks, oscores, olabels = msl
+        else:
+            omasks, oscores, olabels = [], [], []
+
+        ax = plt.gca()
+        for score, mask, lbl in zip(oscores, omasks, olabels):
+            mask = (mask[0].cpu().numpy() > 0.5).astype(np.uint8)
+            if np.all(mask == 0): continue
+            contours = cv2.findContours(mask, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)[0][0]
+            x = contours[:, 0, 0]
+            y = contours[:, 0, 1]
+            xy = np.array(list(zip(x, y)))
+            colour = bgr_colour_for_class(lbl)
+            colour = [v/255. for v in colour[::-1]]
+            ax.add_patch(Polygon(xy, alpha=0.5, facecolor=colour))
+
+        plt.tight_layout()
+        fn = f'{output_dir}/{prefix}valid-seg_{i+o}.jpg'
+        plt.savefig(fn)
+        mlflow.log_artifact(fn, f'{prefix}valid-seg')
         plt.close()
