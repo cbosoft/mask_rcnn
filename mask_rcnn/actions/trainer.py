@@ -9,7 +9,7 @@ from torchinfo import summary
 import mlflow
 
 from ..coco_evaluation import coco_eval_datasets, update_coco_datasets_from_batch
-from ..visualisation import visualise_valid_batch
+from ..visualisation import visualise_valid_batch, visualise_seg
 from ..config import CfgNode, as_hyperparams
 from ..progress_bar import progressbar
 from ..model import build_model
@@ -198,6 +198,7 @@ class Trainer(Action):
 
             self.model.eval()
             done_vis = False
+            ii = 0
             for batch in dataloader:
                 inp = batch['image']
                 if isinstance(inp, list):
@@ -207,15 +208,26 @@ class Trainer(Action):
                 tgt = self.prep_target(batch['target'])
                 out = self.model(inp)
 
-                if not done_vis and ((self.i % self.visualise_every) == 0) and not is_test:
-                    visualise_valid_batch(
+                should_visualise = ((self.i % self.visualise_every) == 0) and not is_test
+                if should_visualise:
+                    if not done_vis:
+                        visualise_valid_batch(
+                            inp, tgt, out,
+                            self.should_show_visualisations,
+                            output_dir=self.output_dir,
+                            epoch=self.i,
+                            prefix=self.prefix,
+                        )
+                        done_vis = True
+
+                    visualise_seg(
                         inp, tgt, out,
-                        self.should_show_visualisations,
                         output_dir=self.output_dir,
                         epoch=self.i,
                         prefix=self.prefix,
+                        o=ii,
                     )
-                    done_vis = True
+                    ii += len(inp)
 
                 # Add GT, DT to coco datasets
                 update_coco_datasets_from_batch(coco_images, coco_gt_anns, coco_dt_anns, tgt, out)
