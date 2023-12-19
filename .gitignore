@@ -3,7 +3,6 @@ training_results
 inference_results
 *.pyc
 __pycache__
-data
 .DS_Store
 .idea
 *.un~
@@ -13,6 +12,8 @@ tags*
 Inference Output
 experiments
 embeddings
+data
+datasets
 
 _*
 zoo
