@@ -11,6 +11,12 @@ class NoOpScheduler:
     def step(self, *args):
         pass
 
+    def state_dict(self, *_, **__) -> dict:
+        return dict()
+
+    def load_state_dict(self, *_, **__):
+        pass
+
 
 def build_sched(config: CfgNode, batches_per_epoch: int):
     kind = config.training.sched.kind
