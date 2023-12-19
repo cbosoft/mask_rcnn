@@ -6,7 +6,7 @@ import json
 import torch
 import numpy as np
 from torchinfo import summary
-import mlflow
+# import mlflow
 
 from ..coco_evaluation import coco_eval_datasets, update_coco_datasets_from_batch
 from ..visualisation import visualise_valid_batch, visualise_seg
@@ -52,10 +52,10 @@ class Trainer(Action):
             for fn in ds_fns
         ])))
 
-        mlflow.set_experiment(self.base_exp_id)
-        mlflow.set_experiment_tag('task', 'object detection')
-        mlflow.set_experiment_tag('action', 'train')
-        mlflow.set_experiment_tag('tag', config.tag or 'unset')
+        # mlflow.set_experiment(self.base_exp_id)
+        # mlflow.set_experiment_tag('task', 'object detection')
+        # mlflow.set_experiment_tag('action', 'train')
+        # mlflow.set_experiment_tag('tag', config.tag or 'unset')
 
         self.n_epochs = config.training.n_epochs
         self.device = torch.device(config.training.device)
@@ -75,6 +75,7 @@ class Trainer(Action):
         self.early_stoppping_less_is_better = config.training.early_stopping.less_is_better
 
         self.hyperparams = as_hyperparams(config)
+        self.this_epoch_metrics = dict()
 
         # used by sub_classes
         self.as_context_manager = False
@@ -89,7 +90,7 @@ class Trainer(Action):
             self.checkpoint()
         except:
             pass  # If checkpoint already exists, the above will raise an exception. Ignore it.
-        mlflow.end_run()
+        # mlflow.end_run()
 
     @property
     def affix(self) -> str:
@@ -126,12 +127,14 @@ class Trainer(Action):
         return rvs
 
     def init_run(self):
-        mlflow.end_run()
-        mlflow.start_run(run_name=self.affix or 'run')
+        # mlflow.end_run()
+        # mlflow.start_run(run_name=self.affix or 'run')
         params = dict(self.hyperparams)
         if self.train_dl is not None:
             params['n_train_data'] = len(self.train_dl)*self.train_dl.batch_size
-        mlflow.log_params(params)
+        with open(f'{self.output_dir}/params.json', 'w') as f:
+            json.dump(params, f, indent=2)
+        # mlflow.log_params(params)
 
     def do_train(self, opt, scheduler):
         self.model.train()
@@ -164,8 +167,10 @@ class Trainer(Action):
                 lr = float('nan')
 
         train_loss = self.total_train_loss / len(self.train_dl)
-        mlflow.log_metric('train.loss', train_loss, step=self.i)
-        mlflow.log_metric('lr', lr, step=self.i)
+        # mlflow.log_metric('train.loss', train_loss, step=self.i)
+        # mlflow.log_metric('lr', lr, step=self.i)
+        self.this_epoch_metrics['train.loss'] = train_loss
+        self.this_epoch_metrics['lr'] = lr
 
     def validate_or_test(self, dataloader, is_test: bool):
 
@@ -248,7 +253,8 @@ class Trainer(Action):
 
         coco_metrics = coco_eval_datasets(coco_data_gt, coco_data_dt)
         for k, v in coco_metrics.items():
-            mlflow.log_metric(f'{valid_or_test}.{k}', v, step=self.i)
+            # mlflow.log_metric(f'{valid_or_test}.{k}', v, step=self.i)
+            self.this_epoch_metrics[f'{valid_or_test}.{k}'] = v
 
         self.displayed_metrics = dict(
             AP50=coco_metrics['AP50'],
@@ -256,7 +262,8 @@ class Trainer(Action):
         )
 
         this_loss = (self.total_test_loss if is_test else self.total_valid_loss) / len(dataloader)
-        mlflow.log_metric(f'{valid_or_test}.loss', this_loss, step=self.i)
+        # mlflow.log_metric(f'{valid_or_test}.loss', this_loss, step=self.i)
+        self.this_epoch_metrics[f'{valid_or_test}.loss'] = v
 
     def do_validation(self):
         if self.valid_dl is not None:
@@ -312,11 +319,12 @@ so that any exceptions can be properly handled, and training status can be logge
         opt = self.opt_t(self.model.parameters(), **self.opt_kws)
         scheduler = self.sched_t(opt, **self.sched_kws)
 
-        mlflow.log_artifact(f'{self.output_dir}/config.yaml')
+        # mlflow.log_artifact(f'{self.output_dir}/config.yaml')
         self.do_validation()
         self.bar = progressbar(range(self.n_epochs), unit='epoch', ncols=80)
         for _i in self.bar:
             self.i = _i + 1
+            self.this_epoch_metrics = dict(epoch=self.i)
 
             self.total_train_loss = 0
             self.do_train(opt, scheduler)
@@ -330,6 +338,8 @@ so that any exceptions can be properly handled, and training status can be logge
                 self.last_checkpoint = self.i
 
             self.update_progress()
+            with open(f'{self.output_dir}/metrics.json_list', 'a') as f:
+                f.write(json.dumps(self.this_epoch_metrics)+'\n')
 
             if self.early_stopping_criteria in self.displayed_metrics:
                 self.early_stoppping_criteria_history.append(self.displayed_metrics[self.early_stopping_criteria])
@@ -378,7 +388,7 @@ so that any exceptions can be properly handled, and training status can be logge
     def checkpoint(self):
         state_path = f'{self.output_dir}/{self.prefix}model_state_at_epoch={self.i}.pth'
         torch.save(self.model.state_dict(), state_path)
-        mlflow.log_artifact(state_path)
+        # mlflow.log_artifact(state_path)
 
     def update_progress(self):
         train_loss = self.total_train_loss / len(self.train_dl)
