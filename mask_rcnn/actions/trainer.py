@@ -287,6 +287,17 @@ class Trainer(Action):
             for line in sources:
                 f.write(f'{line}\n')
 
+    def try_continue(self, model: torch.nn.Module, opt: torch.optim.Optimizer, sched: torch.optim.lr_scheduler.LRScheduler):
+        checkpoint_path = f'{self.output_dir}/checkpoint.pth'
+        if os.path.exists(checkpoint_path):
+            model_state, epochs, optimiser_state, scheduler_state, time = torch.load(checkpoint_path)
+            model.load_state_dict(model_state)
+            self.i = epochs
+            model.load_state_dict(model_state)
+            opt.load_state_dict(optimiser_state)
+            sched.load_state_dict(scheduler_state)
+            print(f'Loaded previous checkpoint at epoch {epochs} from {time}')
+
     def train(self):
 
         self.init_run()
@@ -312,16 +323,21 @@ so that any exceptions can be properly handled, and training status can be logge
         with open(f'{self.output_dir}/model.txt', 'w') as f:
             f.write(str(self.model))
 
+
         self.save_dataset_contents(self.train_dl, 'train')
         self.save_dataset_contents(self.valid_dl, 'valid')
         balance_plot('train', self.train_dl, 'valid', self.valid_dl, filename=f'{self.output_dir}/fig_dataset_balance.pdf')
 
         opt = self.opt_t(self.model.parameters(), **self.opt_kws)
         scheduler = self.sched_t(opt, **self.sched_kws)
+        self.try_continue(self.model, opt, scheduler)
 
         # mlflow.log_artifact(f'{self.output_dir}/config.yaml')
         self.do_validation()
-        self.bar = progressbar(range(self.n_epochs), unit='epoch', ncols=80)
+        self.bar = progressbar(
+            range(self.i, self.n_epochs),
+            initial=self.i, total=self.n_epochs,
+            unit='epoch', ncols=80)
         for _i in self.bar:
             self.i = _i + 1
             self.this_epoch_metrics = dict(epoch=self.i)
@@ -334,7 +350,7 @@ so that any exceptions can be properly handled, and training status can be logge
                 self.do_validation()
 
             if self.should_checkpoint:
-                self.checkpoint()
+                self.checkpoint(opt, scheduler)
                 self.last_checkpoint = self.i
 
             self.update_progress()
@@ -385,10 +401,17 @@ so that any exceptions can be properly handled, and training status can be logge
     def act(self):
         self.train()
 
-    def checkpoint(self):
+    def checkpoint(self, opt: torch.optim.Optimizer = None, sched: torch.optim.lr_scheduler.LRScheduler = None):
         state_path = f'{self.output_dir}/{self.prefix}model_state_at_epoch={self.i}.pth'
+        model_state = self.model.state_dict()
         torch.save(self.model.state_dict(), state_path)
         # mlflow.log_artifact(state_path)
+        if opt is not None:
+            assert sched
+            opt_state = opt.state_dict()
+            sched_state = sched.state_dict()
+            time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+            torch.save((model_state, self.i, opt_state, sched_state, time), f'{self.output_dir}/checkpoint.pth')
 
     def update_progress(self):
         train_loss = self.total_train_loss / len(self.train_dl)
