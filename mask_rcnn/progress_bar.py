@@ -61,7 +61,8 @@ class DetachedBar:
 
     def display(self, force=False):
         now = datetime.now()
-        if force or ((self.time_last_display - now) > timedelta(milliseconds=500)):
+        delta = now - self.time_last_display
+        if force or (delta > timedelta(milliseconds=500)):
             progress = self.i + self.initial
             perc = int(progress * 100 / self.total)
             now_f = now.strftime('%Y-%m-%d %H:%M:%S')
