@@ -3,7 +3,7 @@ from matplotlib.patches import Polygon
 import cv2
 import numpy as np
 
-import mlflow
+# import mlflow
 
 from .classes import bgr_colour_for_class
 
@@ -64,7 +64,7 @@ def visualise_valid_batch(images, targets, outputs, should_show_visualisations: 
             plt.show()
         fn = f'{output_dir}/{prefix}seg-v-gt_{i}_epoch={epoch}.jpg'
         plt.savefig(fn)
-        mlflow.log_artifact(fn, f'{prefix}seg-v-gt')
+        # mlflow.log_artifact(fn, f'{prefix}seg-v-gt')
         plt.close()
 
 
@@ -101,5 +101,5 @@ def visualise_seg(images, targets, outputs, output_dir: str, epoch: int, prefix:
         plt.tight_layout()
         fn = f'{output_dir}/{prefix}valid-seg_{i+o}.jpg'
         plt.savefig(fn)
-        mlflow.log_artifact(fn, f'{prefix}valid-seg')
+        # mlflow.log_artifact(fn, f'{prefix}valid-seg')
         plt.close()
