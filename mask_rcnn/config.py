@@ -28,6 +28,15 @@ def get_config() -> CfgNode:
     # glob pattern or patterns specifying the json COCO-style files describing the data used in training
     cfg.data.pattern = None
 
+    # For contrastive learning, data just needs to be a bunch of images and some indication of their class.
+    # Specify this dataset type by setting this to True.
+    cfg.data.is_classified_images = False
+
+    # Function that runs on the image filenames to get class. By default it returns the name of the parent directory of the images.
+    # Potentially useful to classify by top two dirs or by metadata encoded in image file.
+    # Function that takes in a string and returns a string, AKA: Callable[[str], str]
+    cfg.data.classifier_func = 'lambda fn: os.path.basename(os.path.dirname(fn))'
+
     cfg.data.max_size = 1024
     cfg.data.min_size = 320
 
@@ -156,6 +165,8 @@ def get_config() -> CfgNode:
 
 
 def finalise(cfg: CfgNode):
+    if cfg.action == 'contrastive':
+        assert cfg.data.is_classified_images, 'contrastive learning needs plain images as input (not JSON files)'
     # data spec
     assert cfg.data.pattern is not None, 'cfg.data.pattern must be specified and must be a string or a list of strings.'
     if isinstance(cfg.data.pattern, str):

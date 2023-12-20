@@ -3,6 +3,7 @@ from torch.utils.data import DataLoader
 from ..config import CfgNode
 
 from .coco import COCODataset
+from .images import ImagesDataset
 from .split import split_dataset
 
 
@@ -11,7 +12,10 @@ def collate_fn(batch):
 
 
 def build_dataset(cfg: CfgNode, **kwargs):
-    return COCODataset.from_config(cfg, **kwargs)
+    if cfg.data.is_classified_images:
+        return ImagesDataset.from_config(cfg)
+    else:
+        return COCODataset.from_config(cfg, **kwargs)
 
 
 def build_dataloaders(cfg: CfgNode):
