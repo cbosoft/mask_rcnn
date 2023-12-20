@@ -28,7 +28,7 @@ class DetachedBar:
     def __init__(self, it, *args, initial=None, total=None, unit='', desc='', **kwargs):
         self.iter = iter(it)
         self.initial = initial or 0
-        self.total = total or len(it)
+        self.total = total or len(it) or 1
         self.i = 0
         self.description = desc
         self.unit = unit
