@@ -215,7 +215,7 @@ class ContrastiveTrainer(Action):
         state_path = f'{self.output_dir}/{self.prefix}model_state_at_epoch={self.i}.pth'
         model_state = self.model.state_dict()
         torch.save(self.model.state_dict(), state_path)
-        # mlflow.log_artifact(state_path)
+        torch.save(self.model.state_dict(), f'{self.output_dir}/latest_model.pth')
         if opt is not None:
             assert sched
             opt_state = opt.state_dict()
