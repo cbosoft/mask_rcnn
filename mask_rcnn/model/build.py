@@ -80,9 +80,6 @@ def build_model(cfg: CfgNode, quiet=False) -> MaskRCNN:
         max_size=cfg.data.max_size,
     )
 
-    if not quiet:
-        print(model)
-
     if cfg.model.state:
         state_file = cfg.model.state
         model.load_state_dict(torch.load(state_file, map_location=cfg.training.device))
