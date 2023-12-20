@@ -1,5 +1,6 @@
 import os
 from datetime import datetime
+import torch
 
 from mask_rcnn.run import run
 from mask_rcnn.progress_bar import set_is_detached
@@ -8,6 +9,7 @@ from mask_rcnn.progress_bar import set_is_detached
 
 if __name__ == '__main__':
     set_is_detached()
+    torch.set_num_threads(4)
     experiment = os.getenv("EXPERIMENT")
     assert experiment is not None, 'EXPERIMENT env var must be set and be a valid path to an experiment config or template.'
     assert os.path.exists(experiment), 'EXPERIMENT must be a path to a config or template to run.'
