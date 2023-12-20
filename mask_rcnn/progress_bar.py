@@ -34,10 +34,11 @@ class DetachedBar:
         self.unit = unit
         if self.unit:
             self.unit = ' ' + self.unit
-        self.time_last_display = datetime.now()
+        self.time_last_display = datetime.fromtimestamp(0)
+        self.start_time = None
 
     def __iter__(self):
-        self.display(True)
+        self.start_time = datetime.now()
         return self
 
     def __next__(self):
@@ -59,6 +60,13 @@ class DetachedBar:
             next(self.iter)
         self.display()
 
+    def est_ttg(self, now) -> int:
+        delta: timedelta = now - self.start_time
+        n_done = self.i
+        n_to_go = self.total - self.i - self.initial
+        t_to_go = delta.total_seconds() * n_to_go / n_done
+        return int(t_to_go)
+
     def display(self, force=False):
         now = datetime.now()
         delta = now - self.time_last_display
@@ -66,7 +74,11 @@ class DetachedBar:
             progress = self.i + self.initial
             perc = int(progress * 100 / self.total)
             now_f = now.strftime('%Y-%m-%d %H:%M:%S')
-            print(f'[{now_f}] {progress}/{self.total}{self.unit} ({perc}%) {self.description}')
+            t_to_go = ''
+            if self.i:
+                t_to_go = self.est_ttg(now)
+                t_to_go = f'({t_to_go}s to go)'
+            print(f'[{now_f}] {progress}/{self.total}{self.unit} ({perc}%) {self.description} {t_to_go}')
             self.time_last_display = now
 
 
