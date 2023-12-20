@@ -2,6 +2,8 @@ import os
 import json
 from datetime import datetime
 
+from matplotlib import pyplot as plt
+from sklearn.manifold import TSNE
 import torch
 import numpy as np
 from torch import nn
@@ -76,12 +78,16 @@ class ContrastiveTrainer(Action):
     def should_checkpoint(self) -> bool:
         return (self.i % self.checkpoint_every) == 0
 
+    @property
+    def should_visualise(self) -> bool:
+        return True  # self.should_show_visualisations and ((self.i % self.visualise_every) == 0)
+    
     def do_train(self, loss_func, opt, scheduler):
         self.model.train()
         for batch in self.dataloader:
             a_img, b_img = batch['image']
             a_cls, b_cls = batch['cls']
-
+    
             # TODO: transforms
             # a_prime, b_prime
             opt.zero_grad()
@@ -91,7 +97,7 @@ class ContrastiveTrainer(Action):
             
             loss = loss_func(a_encoding, b_encoding)
             if a_cls != b_cls:
-                loss = 1e2 - loss
+                loss = 1e3 - loss
                 loss = torch.where(loss > 0.0, loss, 0.0)
                 
             self.total_loss += loss.item()
@@ -110,6 +116,40 @@ class ContrastiveTrainer(Action):
         loss = self.total_loss / len(self.dataloader)
         self.this_epoch_metrics['loss'] = loss
         self.this_epoch_metrics['lr'] = lr
+
+    def do_visualise(self):
+        self.model.train()
+        n = len(self.dataset)
+        e_len = len(self.enc_pool(torch.zeros(1, 1000)).flatten())
+        data = np.zeros((n, e_len))
+        classes = np.zeros(n)
+        for i, item in enumerate(self.dataset):
+            img = item['image']
+            cls = item['cls']
+            encoding = self.enc_pool(self.model.backbone(img)['pool'].flatten()[None, ...])
+            encoding = encoding.flatten().detach().cpu().numpy()
+            data[i, :] = encoding
+            classes[i] = cls
+
+        tsne = TSNE()
+        x, y = tsne.fit_transform(data).transpose()
+
+        plt.figure(layout='tight')
+        plt.title(f'Epoch={self.i}')
+        plt.scatter(x, y, c=classes)
+        cb = plt.colorbar()
+
+        ps, lbls = [], []
+        for lbl, p in self.dataset.idx_by_class.items():
+            ps.append(p)
+            lbls.append(lbl)
+        cb.set_ticks(ps, labels=lbls)
+        plt.xlabel('TSNE coord 1')
+        plt.ylabel('TSNE coord 2')
+        plt.savefig(f'{self.output_dir}/fig_tsne_{self.i}.pdf')
+        plt.savefig(f'{self.output_dir}/fig_tsne_latest.pdf')
+        plt.close()
+
 
     def try_continue(self, model: torch.nn.Module, opt: torch.optim.Optimizer, sched: torch.optim.lr_scheduler.LRScheduler):
         checkpoint_path = f'{self.output_dir}/checkpoint.pth'
@@ -143,6 +183,8 @@ class ContrastiveTrainer(Action):
             range(self.i, self.n_epochs),
             initial=self.i, total=self.n_epochs,
             unit='epoch', ncols=80)
+        
+        self.do_visualise()
         for _i in self.bar:
             self.i = _i + 1
             self.this_epoch_metrics = dict(epoch=self.i)
@@ -155,6 +197,9 @@ class ContrastiveTrainer(Action):
             if self.should_checkpoint:
                 self.checkpoint(opt, scheduler)
                 self.last_checkpoint = self.i
+
+            if self.should_visualise:
+                self.do_visualise()
 
             self.update_progress()
 
