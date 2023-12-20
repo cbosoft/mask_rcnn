@@ -29,7 +29,7 @@ class DetachedBar:
         self.iter = iter(it)
         self.initial = initial or 0
         self.total = total or len(it) or 1
-        self.i = 0
+        self.i = -1
         self.description = desc
         self.unit = unit
         if self.unit:
