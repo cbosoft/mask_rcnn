@@ -63,5 +63,6 @@ class ImagesDataset(TorchDataset):
             else:
                 fns.extend(this_pattern_fns)
         image_fns = [fn for fn in fns if os.path.splitext(fn.lower())[1] in cls.EXTENSIONS]
-        return fns
+        assert image_fns
+        return image_fns
 
