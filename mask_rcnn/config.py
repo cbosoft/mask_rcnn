@@ -5,6 +5,8 @@ from syt import CfgNode
 
 import torch
 
+from .util import set_seed
+
 
 def get_config() -> CfgNode:
     cfg = CfgNode()
@@ -21,6 +23,8 @@ def get_config() -> CfgNode:
     cfg.output_dir = 'training_results/%Y-%m-%d_%H-%M-%S'
     cfg.group = 'Mask R-CNN exp;data={data};arch={arch};tl={tl};n={n};e={e};sched={sched};opt={opt};augs={augs};'
     cfg.tag = None
+
+    cfg.seed = 4 # chosen by fair dice roll.
 
     ####################################################################################################################
     cfg.data = CfgNode()
@@ -171,6 +175,8 @@ def get_config() -> CfgNode:
 
 
 def finalise(cfg: CfgNode):
+    set_seed(cfg.seed)
+
     if cfg.action == 'contrastive':
         assert cfg.data.is_classified_images, 'contrastive learning needs plain images as input (not JSON files)'
     # data spec
