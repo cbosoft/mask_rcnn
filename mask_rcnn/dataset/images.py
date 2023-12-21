@@ -22,12 +22,26 @@ class ImagesDataset(TorchDataset):
 
     EXTENSIONS = {'.bmp', '.jpg', '.jpeg', '.png', '.tif', '.tiff'}
 
-    def __init__(self, images: List[ClassifiedImage], device):
+    def __init__(self, images: List[ClassifiedImage], max_per_class: int, device):
         self.images = images
         self.device = device
         all_classes = sorted(set(im.cls for im in images))
         self.idx_by_class = {c: i for i, c in enumerate(all_classes)}
-        print(f'{len(images)} images, {len(all_classes)} classes, on {device}')
+        if max_per_class > 0:
+            limited = f' (limited to {max_per_class} per class)'
+            images_by_class = {}
+            for image in images:
+                if image.cls not in images_by_class:
+                    images_by_class[image.cls] = []
+                images_by_class[image.cls].append(image)
+            self.images = []
+            for cls, images in images_by_class.items():
+                np.random.shuffle(images)
+                self.images.extend(images[:max_per_class])
+            np.random.shuffle(self.images)
+        else:
+            limited = ''
+        print(f'{len(self.images)} images{limited}, {len(all_classes)} classes, on {device}')
         print(self.idx_by_class)
 
     def __len__(self) -> int:
@@ -51,7 +65,7 @@ class ImagesDataset(TorchDataset):
             c = classifier(fn)
             image = ClassifiedImage(fn, c)
             images.append(image)
-        return cls(images, cfg.training.device)
+        return cls(images, cfg.data.classified_images.max_per_class, cfg.training.device)
 
     @classmethod
     def get_dataset_files(cls, patterns: List[str]):

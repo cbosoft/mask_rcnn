@@ -34,6 +34,10 @@ def get_config() -> CfgNode:
 
     cfg.data.classified_images = CfgNode()
 
+    # max number of images per class. Set negative to disable.
+    # Images are removed randomly down to this maximum.
+    cfg.data.classified_images.max_per_class = -1
+
     # Function that runs on the image filenames to get class. By default it returns the name of the parent directory of the images.
     # Potentially useful to classify by top two dirs or by metadata encoded in image file.
     # Function that takes in a string and returns a string, AKA: Callable[[str], str]
