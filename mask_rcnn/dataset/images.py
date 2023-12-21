@@ -45,7 +45,7 @@ class ImagesDataset(TorchDataset):
     @classmethod
     def from_config(cls, cfg: CfgNode):
         image_files = cls.get_dataset_files(cfg.data.pattern)
-        classifier: Callable[[str], str] = eval(cfg.data.classifier_func, dict(os=os))
+        classifier: Callable[[str], str] = eval(cfg.data.classified_images.classifier, dict(os=os))
         images = []
         for fn in image_files:
             c = classifier(fn)

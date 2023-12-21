@@ -32,10 +32,12 @@ def get_config() -> CfgNode:
     # Specify this dataset type by setting this to True.
     cfg.data.is_classified_images = False
 
+    cfg.data.classified_images = CfgNode()
+
     # Function that runs on the image filenames to get class. By default it returns the name of the parent directory of the images.
     # Potentially useful to classify by top two dirs or by metadata encoded in image file.
     # Function that takes in a string and returns a string, AKA: Callable[[str], str]
-    cfg.data.classifier_func = 'lambda fn: os.path.basename(os.path.dirname(fn))'
+    cfg.data.classified_images.classifier = 'lambda fn: os.path.basename(os.path.dirname(fn))'
 
     cfg.data.max_size = 1024
     cfg.data.min_size = 320
