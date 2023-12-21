@@ -7,3 +7,4 @@ from .to_float import to_float
 from .today import today
 from .visualise_output import visualise_output
 from .hex2rgb import hex2rgb
+from .fmt_time import fmt_time

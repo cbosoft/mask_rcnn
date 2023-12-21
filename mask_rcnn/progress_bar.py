@@ -3,6 +3,8 @@ from datetime import datetime, timedelta
 from tqdm import tqdm
 from tqdm.notebook import tqdm as notebook_tqdm
 
+from .util import fmt_time
+
 
 
 WORKING_ENVIRONMENT = 'cli'  #  or 'notebook' or 'detached'
@@ -77,7 +79,8 @@ class DetachedBar:
             t_to_go = ''
             if self.i:
                 t_to_go = self.est_ttg(now)
-                t_to_go = f'({t_to_go}s to go)'
+                t_to_go = fmt_time(t_to_go)
+                t_to_go = f'({t_to_go} to go)'
             print(f'[{now_f}] {progress}/{self.total}{self.unit} ({perc}%) {self.description} {t_to_go}')
             self.time_last_display = now
 
